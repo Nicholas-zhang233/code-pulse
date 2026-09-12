@@ -4,6 +4,13 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.zwx.codepulse.common.BaseResponse;
 import com.zwx.codepulse.common.ResultUtils;
 import com.zwx.codepulse.exception.ErrorCode;
+import com.zwx.codepulse.exception.ThrowUtils;
+import com.zwx.codepulse.model.vo.LoginUserVO;
+import com.zwx.codepulse.model.vo.UserLoginRequest;
+import com.zwx.codepulse.model.vo.UserRegisterRequest;
+import com.zwx.codepulse.service.UserService;
+import jakarta.annotation.Resource;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -19,26 +26,21 @@ import java.util.Map;
 @RequestMapping("/auth")
 public class AuthController {
 
+    @Resource
+    private UserService userService;
+
     /**
      * 用户登录
-     * @param username 用户名
-     * @param password 密码
+     * @param userLoginRequest
      * @return 登录结果
      */
     @PostMapping("/login")
-    public BaseResponse login(@RequestParam String username, @RequestParam String password) {
-        // 1. 验证用户名密码（此处仅示例，实际应查询数据库）
-        if ("admin".equals(username) && "123456".equals(password)) {
-            // 2. 登录成功，为用户创建 Session 并生成 Token
-            StpUtil.login(10001);  // 10001 是用户 id
-
-            // 3. 获取 Token 返回给前端
-            String token = StpUtil.getTokenValue();
-
-            return ResultUtils.success("登录成功", token);
-        }
-
-        return ResultUtils.error(ErrorCode.PARAMS_ERROR,"用户名或密码错误");
+    public BaseResponse login(@RequestBody @Validated UserLoginRequest userLoginRequest) {
+        ThrowUtils.throwIf(userLoginRequest == null, ErrorCode.PARAMS_ERROR);
+        String userAccount = userLoginRequest.getUserAccount();
+        String userPassword = userLoginRequest.getUserPassword();
+        String token = userService.login(userAccount, userPassword);
+        return ResultUtils.success("登录成功", token);
     }
 
     /**
@@ -65,16 +67,17 @@ public class AuthController {
     @GetMapping("/userInfo")
     public BaseResponse getUserInfo() {
         // 检查登录状态，未登录会抛出异常
-        StpUtil.checkLogin();
+        ThrowUtils.throwIf(!StpUtil.isLogin(), ErrorCode.NOT_LOGIN_ERROR);
+        LoginUserVO loginUser = userService.getLoginUserVO(StpUtil.getLoginIdAsLong());
+        return ResultUtils.success(loginUser);
+    }
 
-        // 获取当前登录用户 id
-        long userId = StpUtil.getLoginIdAsLong();
 
-        // 根据 userId 查询用户信息（此处省略）
-        Map<String, Object> userInfo = new HashMap<>();
-        userInfo.put("userId", userId);
-        userInfo.put("username", "admin");
-
-        return ResultUtils.success(userInfo);
+    @PostMapping("/register")
+    public BaseResponse userRegister(@RequestBody @Validated UserRegisterRequest userRegisterRequest){
+        ThrowUtils.throwIf(userRegisterRequest == null, ErrorCode.PARAMS_ERROR);
+        String userAccount = userRegisterRequest.getUserAccount();
+        String userPassword = userRegisterRequest.getUserPassword();
+        String checkPassword = userRegisterRequest.getCheckPassword();
     }
 }
