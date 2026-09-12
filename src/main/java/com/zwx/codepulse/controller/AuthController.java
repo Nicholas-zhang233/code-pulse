@@ -79,5 +79,7 @@ public class AuthController {
         String userAccount = userRegisterRequest.getUserAccount();
         String userPassword = userRegisterRequest.getUserPassword();
         String checkPassword = userRegisterRequest.getCheckPassword();
+        Long token = userService.userRegister(userAccount, userPassword, checkPassword);
+        return ResultUtils.success("注册成功",token+"");
     }
 }
