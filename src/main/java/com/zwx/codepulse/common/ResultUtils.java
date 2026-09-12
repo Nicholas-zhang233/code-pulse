@@ -20,6 +20,18 @@ public class ResultUtils {
     }
 
     /**
+     * 成功
+     *
+     * @param data 数据
+     * @param <T>  数据类型
+     * @param message 消息
+     * @return 响应
+     */
+    public static <T> BaseResponse<T> success(T data,String message) {
+        return new BaseResponse<>(0, data, message);
+    }
+
+    /**
      * 失败
      *
      * @param errorCode 错误码
