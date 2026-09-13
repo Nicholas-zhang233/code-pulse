@@ -88,6 +88,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (saveResult < 1) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，数据库错误");
         }
+        System.out.println(user.getId());
+        StpUtil.login(user.getId());
         return StpUtil.getTokenValueByLoginId(user.getId());
     }
 

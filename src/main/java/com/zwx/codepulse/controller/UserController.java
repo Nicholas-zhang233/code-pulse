@@ -18,10 +18,7 @@ import com.zwx.codepulse.model.vo.UserUpdateRequest;
 import com.zwx.codepulse.model.vo.UserVO;
 import com.zwx.codepulse.service.UserService;
 import jakarta.annotation.Resource;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -31,6 +28,7 @@ import java.util.List;
  * @description:
  **/
 @RestController
+@RequestMapping("/user")
 public class UserController {
     @Resource
     private UserService userService;

@@ -26,6 +26,9 @@ public class StpInterfaceImpl implements StpInterface {
 	@Override
 	public List<String> getPermissionList(Object loginId, String loginType) {
 		List<String> list = new ArrayList<String>();
+		User user = userMapper.selectById(loginId.toString());
+		ThrowUtils.throwIf(user == null, ErrorCode.NOT_LOGIN_ERROR);
+		list.add(user.getUserRole());
 		return list;
 	}
 

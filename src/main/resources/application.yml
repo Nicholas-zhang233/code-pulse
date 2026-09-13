@@ -54,7 +54,7 @@ management:
 
 sa-token:
   # token 名称（同时也是 cookie 名称）
-  token-name: satoken
+  token-name: token
   # token 有效期（单位：秒） 默认30天，-1 代表永久有效
   timeout: 2592000
   # token 最低活跃频率（单位：秒），如果 token 超过此时间没有访问系统就会被冻结，默认-1 代表不限制，永不冻结
@@ -78,7 +78,20 @@ sa-token:
   is-print: true
   # 是否开启token自动续签
   auto-renew: true
-
+# 自定义satoken路由配置
+sa-token-custom:
+  include-paths: # 需要拦截的路径
+    - "/**"
+  exclude-paths: # 放行白名单路径
+    - "/auth/login"
+    - "/auth/register"
+    - "/doc.html"
+    - "/webjars/**"
+    - "/v3/api-docs/**"
+    - "/swagger-ui/**"
+    - "/swagger-ui.html"
+    - "/favicon.ico"
+    - "/error"
 
 mybatis-plus:
   configuration:

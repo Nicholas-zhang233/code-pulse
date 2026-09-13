@@ -24,6 +24,6 @@ public class UserLoginRequest implements Serializable {
      * 密码
      */
     @NotBlank(message = "密码不能为空")
-    @Size(min = 8, max = 16, message = "密码长度在8到16之间")
+    @Size(min = 6, max = 16, message = "密码长度在6到16之间")
     private String userPassword;
 }

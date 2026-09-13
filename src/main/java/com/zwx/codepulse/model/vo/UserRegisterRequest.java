@@ -21,21 +21,21 @@ public class UserRegisterRequest implements Serializable {
     /**
      * 账号
      */
-    @NotBlank
-    @Size(min = 4, max = 16, message = "账号长度在4到16之间")
+    @NotBlank(message = "账号不能为空")
+    @Size(min = 4, max = 16, message = "账号长度必须在4到16之间")
     private String userAccount;
 
     /**
      * 密码
      */
-    @NotBlank
-    @Size(min = 8, max = 16, message = "密码长度在8到16之间")
+    @NotBlank(message = "密码不能为空")
+    @Size(min = 6, max = 16, message = "密码长度必须在6到16之间")
     private String userPassword;
 
     /**
      * 确认密码
      */
-    @NotBlank
-    @Size(min = 8, max = 16, message = "密码长度在8到16之间")
+    @NotBlank(message = "确认密码不能为空")
+    @Size(min = 6, max = 16, message = "密码长度在6到16之间")
     private String checkPassword;
 }
