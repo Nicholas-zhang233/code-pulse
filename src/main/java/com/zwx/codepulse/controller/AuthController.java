@@ -13,8 +13,6 @@ import jakarta.annotation.Resource;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * @author: 张伟旭
@@ -79,7 +77,7 @@ public class AuthController {
         String userAccount = userRegisterRequest.getUserAccount();
         String userPassword = userRegisterRequest.getUserPassword();
         String checkPassword = userRegisterRequest.getCheckPassword();
-        Long token = userService.userRegister(userAccount, userPassword, checkPassword);
-        return ResultUtils.success("注册成功",token+"");
+        String token = userService.userRegister(userAccount, userPassword, checkPassword);
+        return ResultUtils.success("注册成功",token);
     }
 }
