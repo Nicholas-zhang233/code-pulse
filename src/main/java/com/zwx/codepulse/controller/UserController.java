@@ -1,6 +1,7 @@
 package com.zwx.codepulse.controller;
 
 import cn.dev33.satoken.annotation.SaCheckRole;
+import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zwx.codepulse.common.BaseResponse;
@@ -12,12 +13,10 @@ import com.zwx.codepulse.exception.ErrorCode;
 import com.zwx.codepulse.exception.ThrowUtils;
 import com.zwx.codepulse.model.entity.User;
 import com.zwx.codepulse.model.enums.UserRoleEnum;
-import com.zwx.codepulse.model.vo.UserAddRequest;
-import com.zwx.codepulse.model.vo.UserQueryRequest;
-import com.zwx.codepulse.model.vo.UserUpdateRequest;
-import com.zwx.codepulse.model.vo.UserVO;
+import com.zwx.codepulse.model.vo.*;
 import com.zwx.codepulse.service.UserService;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -119,5 +118,12 @@ public class UserController {
         List<UserVO> userVOList = userService.getUserVOList(userPage.getRecords());
         userVOPage.setRecords(userVOList);
         return ResultUtils.success(userVOPage);
+    }
+
+    @GetMapping("/get/login")
+    public BaseResponse<LoginUserVO> getLoginUser() {
+        ThrowUtils.throwIf(!StpUtil.isLogin(), ErrorCode.NOT_LOGIN_ERROR);
+        LoginUserVO loginUser = userService.getLoginUserVO(StpUtil.getLoginIdAsLong());
+        return ResultUtils.success(loginUser);
     }
 }

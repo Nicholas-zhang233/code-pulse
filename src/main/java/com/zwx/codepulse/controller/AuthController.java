@@ -33,7 +33,7 @@ public class AuthController {
      * @return 登录结果
      */
     @PostMapping("/login")
-    public BaseResponse login(@RequestBody @Validated UserLoginRequest userLoginRequest) {
+    public BaseResponse<String> login(@RequestBody @Validated UserLoginRequest userLoginRequest) {
         ThrowUtils.throwIf(userLoginRequest == null, ErrorCode.PARAMS_ERROR);
         String userAccount = userLoginRequest.getUserAccount();
         String userPassword = userLoginRequest.getUserPassword();
@@ -45,16 +45,15 @@ public class AuthController {
      * 查询登录状态
      */
     @GetMapping("/isLogin")
-    public BaseResponse isLogin() {
-        boolean isLogin = StpUtil.isLogin();
-        return ResultUtils.success("是否登录：" + isLogin);
+    public BaseResponse<Boolean> isLogin() {
+        return ResultUtils.success(StpUtil.isLogin());
     }
 
     /**
      * 退出登录
      */
     @PostMapping("/logout")
-    public BaseResponse logout() {
+    public BaseResponse<String> logout() {
         StpUtil.logout();
         return ResultUtils.success("退出成功");
     }
@@ -63,7 +62,7 @@ public class AuthController {
      * 获取当前登录用户信息
      */
     @GetMapping("/userInfo")
-    public BaseResponse getUserInfo() {
+    public BaseResponse<LoginUserVO> getUserInfo() {
         // 检查登录状态，未登录会抛出异常
         ThrowUtils.throwIf(!StpUtil.isLogin(), ErrorCode.NOT_LOGIN_ERROR);
         LoginUserVO loginUser = userService.getLoginUserVO(StpUtil.getLoginIdAsLong());
@@ -72,7 +71,7 @@ public class AuthController {
 
 
     @PostMapping("/register")
-    public BaseResponse userRegister(@RequestBody @Validated UserRegisterRequest userRegisterRequest){
+    public BaseResponse<String> userRegister(@RequestBody @Validated UserRegisterRequest userRegisterRequest){
         ThrowUtils.throwIf(userRegisterRequest == null, ErrorCode.PARAMS_ERROR);
         String userAccount = userRegisterRequest.getUserAccount();
         String userPassword = userRegisterRequest.getUserPassword();
