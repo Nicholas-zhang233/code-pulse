@@ -11,6 +11,12 @@ declare namespace API {
     message?: string
   }
 
+  type BaseResponseLoginUserVO = {
+    code?: number
+    data?: LoginUserVO
+    message?: string
+  }
+
   type BaseResponseLong = {
     code?: number
     data?: number
@@ -45,6 +51,17 @@ declare namespace API {
 
   type getUserVOByIdParams = {
     id: number
+  }
+
+  type LoginUserVO = {
+    id?: number
+    userAccount?: string
+    userName?: string
+    userAvatar?: string
+    userProfile?: string
+    userRole?: string
+    createTime?: string
+    updateTime?: string
   }
 
   type OrderItem = {
