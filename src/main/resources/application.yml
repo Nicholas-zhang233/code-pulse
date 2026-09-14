@@ -93,6 +93,7 @@ sa-token-custom:
     - "/favicon.ico"
     - "/error"
     - "/v3/api-docs"
+    - "/"
 
 mybatis-plus:
   configuration:

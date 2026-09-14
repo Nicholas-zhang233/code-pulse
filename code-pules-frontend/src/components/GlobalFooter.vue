@@ -23,7 +23,7 @@
 .footer {
   background: #efefef;
   text-align: center;
-  padding: 20px;
+  padding: 10px;
   position: fixed;
   bottom: 0;
   left: 0;

@@ -1,6 +1,7 @@
 package com.zwx.codepulse.exception;
 
 import cn.dev33.satoken.exception.NotLoginException;
+import cn.dev33.satoken.exception.NotRoleException;
 import cn.hutool.json.JSONUtil;
 import com.zwx.codepulse.common.BaseResponse;
 import com.zwx.codepulse.common.ResultUtils;
@@ -70,6 +71,16 @@ public class GlobalExceptionHandler {
             return null;
         }
         return ResultUtils.error(ErrorCode.PARAMS_ERROR, e.getBindingResult().getAllErrors().get(0).getDefaultMessage());
+    }
+
+    @ExceptionHandler(NotRoleException.class)
+    @ResponseBody
+    public BaseResponse<?> NotRoleExceptionExceptionHandler(NotRoleException e) {
+        log.error("NotRoleException", e);
+        if (handleSseError(ErrorCode.PARAMS_ERROR.getCode(), "没有权限")){
+            return null;
+        }
+        return ResultUtils.error(ErrorCode.PARAMS_ERROR, "没有权限");
     }
 
     /**

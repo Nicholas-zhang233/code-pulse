@@ -1,139 +1,152 @@
+<template>
+  <a-layout-header class="header">
+    <a-row :wrap="false">
+      <!-- 左侧：Logo和标题 -->
+      <a-col flex="273px">
+        <RouterLink to="/">
+          <div class="header-left">
+            <img class="logo" src="@/assets/logo.png" alt="Logo" />
+            <h1 class="site-title">Code Pulse应用生成平台</h1>
+          </div>
+        </RouterLink>
+      </a-col>
+      <!-- 中间：导航菜单 -->
+      <a-col flex="auto">
+        <a-menu
+          v-model:selectedKeys="selectedKeys"
+          mode="horizontal"
+          :items="menuItems"
+          @click="handleMenuClick"
+        />
+      </a-col>
+      <!-- 右侧：用户操作区域 -->
+      <a-col>
+        <div class="user-login-status">
+          <div v-if="loginUserStore.loginUser.id">
+            <a-dropdown>
+              <a-space>
+                <a-avatar :src="loginUserStore.loginUser.userAvatar" />
+                {{ loginUserStore.loginUser.userName ?? '无名' }}
+              </a-space>
+              <template #overlay>
+                <a-menu>
+                  <a-menu-item @click="doLogout">
+                    <LogoutOutlined />
+                    退出登录
+                  </a-menu-item>
+                </a-menu>
+              </template>
+            </a-dropdown>
+          </div>
+          <div v-else>
+            <a-button type="primary" href="/user/login">登录</a-button>
+          </div>
+        </div>
+      </a-col>
+    </a-row>
+  </a-layout-header>
+</template>
+
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, h, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import type { MenuProps } from 'ant-design-vue'
+import { message } from 'ant-design-vue'
+import { useLoginUserStore } from '@/stores/loginUser.ts'
+import { LogoutOutlined } from '@ant-design/icons-vue'
+import { logout } from '@/api/authController.ts'
 
-const route = useRoute()
+// 获取登录用户状态
+const loginUserStore = useLoginUserStore()
+
 const router = useRouter()
-const logoVisible = ref(true)
-const logoIndex = ref(0)
+// 当前选中菜单
+const selectedKeys = ref<string[]>(['/'])
+// 监听路由变化，更新当前选中菜单
+router.afterEach((to, from, next) => {
+  selectedKeys.value = [to.path]
+})
 
-const logoUrls = ['/src/assets/logo.png', '/logo.png']
-const logoUrl = computed(() => logoUrls[logoIndex.value])
-const menuItems = [
+// 菜单配置项
+const originItems = [
   {
     key: '/',
     label: '首页',
-    path: '/',
+    title: '首页',
   },
   {
-    key: '/about',
-    label: '关于',
-    path: '/about',
+    key: '/admin/userManage',
+    label: '用户管理',
+    title: '用户管理',
   },
 ]
 
-const selectedKeys = computed(() => {
-  const activeItem = menuItems.find((item) => item.path === route.path)
-  return activeItem ? [activeItem.key] : []
-})
+// 过滤菜单项
+const filterMenus = (menus = [] as MenuProps['items']) => {
+  return menus?.filter((menu) => {
+    const menuKey = menu?.key as string
+    if (menuKey?.startsWith('/admin')) {
+      const loginUser = loginUserStore.loginUser
+      if (!loginUser || loginUser.userRole !== 'admin') {
+        return false
+      }
+    }
+    return true
+  })
+}
 
-const handleMenuClick = ({ key }: { key: string | number }) => {
-  const targetItem = menuItems.find((item) => item.key === key)
+// 展示在菜单的路由数组
+const menuItems = computed<MenuProps['items']>(() => filterMenus(originItems))
 
-  if (targetItem && targetItem.path !== route.path) {
-    router.push(targetItem.path)
+// 处理菜单点击
+const handleMenuClick: MenuProps['onClick'] = (e) => {
+  const key = e.key as string
+  selectedKeys.value = [key]
+  // 跳转到对应页面
+  if (key.startsWith('/')) {
+    router.push(key)
   }
 }
 
-const handleLogoError = () => {
-  if (logoIndex.value < logoUrls.length - 1) {
-    logoIndex.value += 1
-    return
+// 退出登录
+const doLogout = async () => {
+  const res = await logout()
+  if (res.data.code === 0) {
+    loginUserStore.setLoginUser({
+      userName: '未登录',
+    })
+    message.success('退出登录成功')
+    await router.push('/user/login')
+  } else {
+    message.error('退出登录失败，' + res.data.message)
   }
-
-  logoVisible.value = false
 }
 </script>
 
-<template>
-  <div class="global-header">
-    <div class="global-header__brand">
-      <img
-        v-if="logoVisible"
-        class="global-header__logo"
-        :src="logoUrl"
-        alt="Code Pulse logo"
-        @error="handleLogoError"
-      />
-      <span class="global-header__title">Code Pulse</span>
-    </div>
-
-    <a-menu
-      class="global-header__menu"
-      mode="horizontal"
-      :items="menuItems"
-      :selected-keys="selectedKeys"
-      @click="handleMenuClick"
-    />
-
-    <div class="global-header__actions">
-      <a-button type="primary">登录</a-button>
-    </div>
-  </div>
-</template>
-
 <style scoped>
-.global-header {
-  display: flex;
-  align-items: center;
-  min-height: 64px;
+.header {
+  background: #fff;
   padding: 0 24px;
-  gap: 24px;
 }
 
-.global-header__brand {
+.header-left {
   display: flex;
-  flex: 0 0 auto;
   align-items: center;
-  min-width: 0;
-  gap: 10px;
+  gap: 12px;
 }
 
-.global-header__logo {
-  width: 32px;
-  height: 32px;
-  flex: 0 0 auto;
-  object-fit: contain;
+.logo {
+  height: 48px;
+  width: 48px;
 }
 
-.global-header__title {
-  color: #172033;
+.site-title {
+  margin: 0;
   font-size: 18px;
-  font-weight: 700;
-  line-height: 1;
-  white-space: nowrap;
+  color: #1890ff;
 }
 
-.global-header__menu {
-  flex: 1 1 auto;
-  min-width: 0;
-  border-bottom: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-}
-
-.global-header__menu :deep(.ant-menu-overflow) {
-  flex-wrap: nowrap;
-}
-
-.global-header__menu :deep(.ant-menu-item) {
-  white-space: nowrap;
-}
-
-.global-header__actions {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-}
-
-@media (max-width: 768px) {
-  .global-header {
-    padding: 0 12px;
-    gap: 12px;
-  }
-
-  .global-header__title {
-    font-size: 16px;
-  }
+.ant-menu-horizontal {
+  border-bottom: none !important;
 }
 </style>
