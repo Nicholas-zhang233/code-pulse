@@ -58,7 +58,7 @@ public class GlobalExceptionHandler {
         if (handleSseError(ErrorCode.PARAMS_ERROR.getCode(), "没有登录")) {
             return null;
         }
-        return ResultUtils.error(ErrorCode.SYSTEM_ERROR, "没有登录");
+        return ResultUtils.error(ErrorCode.NOT_LOGIN_ERROR, "没有登录");
     }
     /**
      * 处理请求参数格式错误 @RequestBody上使用@Valid 实体上使用@NotNull等，验证失败后抛出的异常是MethodArgumentNotValidException异常

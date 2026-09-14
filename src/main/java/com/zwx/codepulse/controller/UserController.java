@@ -122,7 +122,6 @@ public class UserController {
 
     @GetMapping("/get/login")
     public BaseResponse<LoginUserVO> getLoginUser() {
-        ThrowUtils.throwIf(!StpUtil.isLogin(), ErrorCode.NOT_LOGIN_ERROR);
         LoginUserVO loginUser = userService.getLoginUserVO(StpUtil.getLoginIdAsLong());
         return ResultUtils.success(loginUser);
     }
