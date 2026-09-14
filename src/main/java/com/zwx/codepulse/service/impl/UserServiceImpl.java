@@ -116,12 +116,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String sortField = userQueryRequest.getSortField();
         String sortOrder = userQueryRequest.getSortOrder();
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("id", id)
-                .eq("userRole", userRole)
-                .like("userAccount", userAccount)
-                .like("userName", userName)
-                .like("userProfile", userProfile)
-                .orderBy(true, "ascend".equals(sortOrder),sortField);
+        queryWrapper
+                .eq(id != null, "id", id)
+                .eq(userRole != null, "userRole", userRole)
+                .like(userAccount != null && !userAccount.isEmpty(), "userAccount", userAccount)
+                .like(userName != null && !userName.isEmpty(), "userName", userName)
+                .like(userProfile != null && !userProfile.isEmpty(), "userProfile", userProfile)
+                .orderBy(true, "ascend".equals(sortOrder), sortField);
         return queryWrapper;
     }
 

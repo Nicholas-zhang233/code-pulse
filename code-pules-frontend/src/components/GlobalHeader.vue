@@ -112,6 +112,7 @@ const handleMenuClick: MenuProps['onClick'] = (e) => {
 const doLogout = async () => {
   const res = await logout()
   if (res.data.code === 0) {
+    localStorage.removeItem('token')
     loginUserStore.setLoginUser({
       userName: '未登录',
     })

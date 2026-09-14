@@ -83,7 +83,7 @@ const columns = [
   },
 ]
 
-// 展示的数据
+// 数据
 const data = ref<API.UserVO[]>([])
 const total = ref(0)
 
@@ -105,6 +105,7 @@ const fetchData = async () => {
     message.error('获取数据失败，' + res.data.message)
   }
 }
+
 
 // 分页参数
 const pagination = computed(() => {
