@@ -7,6 +7,7 @@ import com.zwx.codepulse.common.DeleteRequest;
 import com.zwx.codepulse.model.dto.AppAddRequest;
 import com.zwx.codepulse.model.dto.AppUpdateRequest;
 import com.zwx.codepulse.model.entity.App;
+import com.zwx.codepulse.model.vo.AppAdminUpdateRequest;
 import com.zwx.codepulse.model.vo.AppQueryRequest;
 import com.zwx.codepulse.model.vo.AppVO;
 
@@ -27,4 +28,7 @@ public interface AppService {
     QueryWrapper<App> getQueryWrapper(AppQueryRequest appQueryRequest);
     List<AppVO> getAppVOList(List<App> appList);
     Page<AppVO> listMyAppVOByPage(AppQueryRequest appQueryRequest, Long userId);
+    Page<AppVO> listGoodAppVOByPage(AppQueryRequest appQueryRequest);
+    Boolean deleteAppByAdmin(DeleteRequest deleteRequest);
+    void updateAppByAdmin(AppAdminUpdateRequest appAdminUpdateRequest);
 }

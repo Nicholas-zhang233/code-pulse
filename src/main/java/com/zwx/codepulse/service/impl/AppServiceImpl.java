@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.zwx.codepulse.common.DeleteRequest;
+import com.zwx.codepulse.constant.AppConstant;
 import com.zwx.codepulse.exception.ErrorCode;
 import com.zwx.codepulse.exception.ThrowUtils;
 import com.zwx.codepulse.mapper.AppMapper;
@@ -14,6 +15,7 @@ import com.zwx.codepulse.model.dto.AppUpdateRequest;
 import com.zwx.codepulse.model.entity.App;
 import com.zwx.codepulse.model.entity.User;
 import com.zwx.codepulse.model.enums.CodeGenTypeEnum;
+import com.zwx.codepulse.model.vo.AppAdminUpdateRequest;
 import com.zwx.codepulse.model.vo.AppQueryRequest;
 import com.zwx.codepulse.model.vo.AppVO;
 import com.zwx.codepulse.model.vo.UserVO;
@@ -173,12 +175,55 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         appQueryRequest.setUserId(userId);
         QueryWrapper<App> queryWrapper = this.getQueryWrapper(appQueryRequest);
         Page<App> page = this.page(Page.of(pageNum, pageSize), queryWrapper);
-        // 数据封装
+
         Page<AppVO> appVOPage = new Page<>(pageNum, pageSize, page.getTotal());
+        // 数据封装
         List<AppVO> appVOList = this.getAppVOList(page.getRecords());
         appVOPage.setRecords(appVOList);
         return appVOPage;
     }
 
+    @Override
+    public Page<AppVO> listGoodAppVOByPage(AppQueryRequest appQueryRequest) {
+        ThrowUtils.throwIf(appQueryRequest == null, ErrorCode.PARAMS_ERROR);
+        // 限制每页最多 20 个
+        long pageSize = appQueryRequest.getPageSize();
+        ThrowUtils.throwIf(pageSize > 20, ErrorCode.PARAMS_ERROR, "每页最多查询 20 个应用");
+        long pageNum = appQueryRequest.getPageNum();
+        // 只查询精选的应用
+        appQueryRequest.setPriority(AppConstant.GOOD_APP_PRIORITY);
+        QueryWrapper<App> queryWrapper = this.getQueryWrapper(appQueryRequest);
+        // 分页查询
+        Page<App> appPage = this.page(Page.of(pageNum, pageSize), queryWrapper);
+        // 数据封装
+        Page<AppVO> appVOPage = new Page<>(pageNum, pageSize, appPage.getTotal());
+        List<AppVO> appVOList = this.getAppVOList(appPage.getRecords());
+        appVOPage.setRecords(appVOList);
+        return null;
+    }
 
+    @Override
+    public Boolean deleteAppByAdmin(DeleteRequest deleteRequest) {
+        ThrowUtils.throwIf(deleteRequest == null || deleteRequest.getId() <= 0,ErrorCode.PARAMS_ERROR);
+        long id = deleteRequest.getId();
+        // 判断是否存在
+        App oldApp = this.getById(id);
+        ThrowUtils.throwIf(oldApp == null, ErrorCode.NOT_FOUND_ERROR);
+        return this.removeById(id);
+    }
+
+    @Override
+    public void updateAppByAdmin(AppAdminUpdateRequest appAdminUpdateRequest) {
+        ThrowUtils.throwIf(appAdminUpdateRequest == null || appAdminUpdateRequest.getId() <= 0,ErrorCode.PARAMS_ERROR);
+        long id = appAdminUpdateRequest.getId();
+        // 判断是否存在
+        App oldApp = this.getById(id);
+        ThrowUtils.throwIf(oldApp == null, ErrorCode.NOT_FOUND_ERROR);
+        App app = new App();
+        BeanUtil.copyProperties(appAdminUpdateRequest, app);
+        // 设置编辑时间
+        app.setEditTime(LocalDateTime.now());
+        boolean result = this.updateById(app);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+    }
 }
