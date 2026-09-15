@@ -31,4 +31,6 @@ public interface AppService {
     Page<AppVO> listGoodAppVOByPage(AppQueryRequest appQueryRequest);
     Boolean deleteAppByAdmin(DeleteRequest deleteRequest);
     void updateAppByAdmin(AppAdminUpdateRequest appAdminUpdateRequest);
+    Page<AppVO> listAppVOByPageByAdmin(AppQueryRequest appQueryRequest);
+    AppVO getAppVOByIdByAdmin(Long id);
 }

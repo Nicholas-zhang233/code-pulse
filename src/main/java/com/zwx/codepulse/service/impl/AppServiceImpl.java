@@ -226,4 +226,27 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         boolean result = this.updateById(app);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
     }
+
+    @Override
+    public Page<AppVO> listAppVOByPageByAdmin(AppQueryRequest appQueryRequest) {
+        ThrowUtils.throwIf(appQueryRequest == null, ErrorCode.PARAMS_ERROR);
+        long pageNum = appQueryRequest.getPageNum();
+        long pageSize = appQueryRequest.getPageSize();
+        QueryWrapper<App> queryWrapper = this.getQueryWrapper(appQueryRequest);
+        Page<App> appPage = this.page(Page.of(pageNum, pageSize), queryWrapper);
+        // 数据封装
+        Page<AppVO> appVOPage = new Page<>(pageNum, pageSize, appPage.getTotal());
+        List<AppVO> appVOList = this.getAppVOList(appPage.getRecords());
+        appVOPage.setRecords(appVOList);
+        return appVOPage;
+    }
+
+    @Override
+    public AppVO getAppVOByIdByAdmin(Long id) {
+        ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
+        // 查询数据库
+        App app = this.getById(id);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR);
+        return this.getAppVO(app);
+    }
 }

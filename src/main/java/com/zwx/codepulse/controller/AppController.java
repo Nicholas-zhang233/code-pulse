@@ -136,6 +136,32 @@ public class AppController {
         appService.updateAppByAdmin(appAdminUpdateRequest);
         return ResultUtils.success(true);
     }
+    /**
+     * 管理员分页获取应用列表
+     *
+     * @param appQueryRequest 查询请求
+     * @return 应用列表
+     */
+    @PostMapping("/admin/list/page/vo")
+    @SaCheckRole(UserConstant.ADMIN_ROLE)
+    public BaseResponse<Page<AppVO>> listAppVOByPageByAdmin(@RequestBody AppQueryRequest appQueryRequest) {
+        ThrowUtils.throwIf(appQueryRequest == null, ErrorCode.PARAMS_ERROR);
+        Page<AppVO> appVOPage = appService.listAppVOByPageByAdmin(appQueryRequest);
+        return ResultUtils.success(appVOPage);
+    }
+    /**
+     * 管理员根据 id 获取应用详情
+     *
+     * @param id 应用 id
+     * @return 应用详情
+     */
+    @GetMapping("/admin/get/vo")
+    @SaCheckRole(UserConstant.ADMIN_ROLE)
+    public BaseResponse<AppVO> getAppVOByIdByAdmin(long id) {
+        ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
+        AppVO appVO = appService.getAppVOByIdByAdmin(id);
+        return ResultUtils.success(appVO);
+    }
 
 
 }
