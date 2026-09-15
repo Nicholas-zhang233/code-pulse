@@ -1,6 +1,7 @@
 package com.zwx.codepulse.controller;
 
 import cn.dev33.satoken.stp.StpUtil;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zwx.codepulse.common.BaseResponse;
 import com.zwx.codepulse.common.DeleteRequest;
 import com.zwx.codepulse.common.ResultUtils;
@@ -8,8 +9,12 @@ import com.zwx.codepulse.exception.ErrorCode;
 import com.zwx.codepulse.exception.ThrowUtils;
 import com.zwx.codepulse.model.dto.AppAddRequest;
 import com.zwx.codepulse.model.dto.AppUpdateRequest;
+import com.zwx.codepulse.model.entity.App;
+import com.zwx.codepulse.model.vo.AppQueryRequest;
+import com.zwx.codepulse.model.vo.AppVO;
 import com.zwx.codepulse.service.AppService;
 import jakarta.annotation.Resource;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -63,6 +68,32 @@ public class AppController {
         return ResultUtils.success(result);
     }
 
+    /**
+     * 根据 id 获取应用详情
+     *
+     * @param id      应用 id
+     * @return 应用详情
+     */
+    @GetMapping("/get/vo")
+    public BaseResponse<AppVO> getAppVOById(long id) {
+        ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
+        AppVO appVO = appService.getAppVOById(id);
+        return ResultUtils.success(appVO);
+    }
+
+
+    /**
+     * 分页获取当前用户创建的应用列表
+     *
+     * @param appQueryRequest 查询请求
+     * @return 应用列表
+     */
+    @PostMapping("/my/list/page/vo")
+    public BaseResponse<Page<AppVO>> listMyAppVOByPage(@RequestBody AppQueryRequest appQueryRequest) {
+        ThrowUtils.throwIf(appQueryRequest == null, ErrorCode.PARAMS_ERROR);
+        Page<AppVO> appVOPage = appService.listMyAppVOByPage(appQueryRequest, StpUtil.getLoginIdAsLong());
+        return ResultUtils.success(appVOPage);
+    }
 
 
 }
