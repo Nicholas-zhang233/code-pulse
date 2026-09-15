@@ -6,6 +6,7 @@ import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import reactor.core.publisher.Flux;
 
 @SpringBootTest
 class AiCodeGeneratorServiceTest {
@@ -21,7 +22,7 @@ class AiCodeGeneratorServiceTest {
 
     @Test
     void generateMultiFileCode() {
-        MultiFileCodeResult multiFileCode = aiCodeGeneratorService.generateMultiFileCode("做个留言板");
+        MultiFileCodeResult  multiFileCode = aiCodeGeneratorService.generateMultiFileCode("做个留言板");
         Assertions.assertNotNull(multiFileCode);
     }
 }
