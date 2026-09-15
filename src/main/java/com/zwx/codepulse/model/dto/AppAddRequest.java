@@ -1,5 +1,6 @@
 package com.zwx.codepulse.model.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -13,6 +14,7 @@ public class AppAddRequest implements Serializable {
     /**
      * 应用初始化的 prompt
      */
+    @NotBlank
     private String initPrompt;
 
     private static final long serialVersionUID = 1L;
