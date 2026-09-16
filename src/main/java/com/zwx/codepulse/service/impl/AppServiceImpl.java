@@ -2,11 +2,14 @@ package com.zwx.codepulse.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.zwx.codepulse.ai.core.AiCodeGeneratorFacade;
 import com.zwx.codepulse.common.DeleteRequest;
 import com.zwx.codepulse.constant.AppConstant;
+import com.zwx.codepulse.exception.BusinessException;
 import com.zwx.codepulse.exception.ErrorCode;
 import com.zwx.codepulse.exception.ThrowUtils;
 import com.zwx.codepulse.mapper.AppMapper;
@@ -24,6 +27,7 @@ import com.zwx.codepulse.service.UserService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
+import reactor.core.publisher.Flux;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -43,6 +47,27 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private AiCodeGeneratorFacade aiCodeGeneratorFacade;
+
+    @Override
+    public Flux<String> chatToGenCode(Long appId, String message, Long userId) {
+        // 1. 参数校验
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+        ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
+        // 2. 查询应用信息
+        App app = this.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        // 3. 验证用户是否有权限访问该应用，仅本人可以生成代码
+        ThrowUtils.throwIf(!app.getUserId().equals(userId), ErrorCode.NO_AUTH_ERROR, "无权限访问该应用");
+        // 4. 获取应用的代码生成类型
+        String codeGenTypeStr = app.getCodeGenType();
+        CodeGenTypeEnum codeGenTypeEnum = CodeGenTypeEnum.getEnumByValue(codeGenTypeStr);
+        ThrowUtils.throwIf(codeGenTypeEnum == null, ErrorCode.SYSTEM_ERROR, "不支持的代码生成类型");
+        // 5. 调用 AI 生成代码
+        return aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId);
+    }
 
     @Override
     public Long createApp(@Validated AppAddRequest appAddRequest, Long userId) {
@@ -249,4 +274,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR);
         return this.getAppVO(app);
     }
+
+
+
 }

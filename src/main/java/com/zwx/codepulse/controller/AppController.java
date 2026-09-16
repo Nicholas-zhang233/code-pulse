@@ -2,26 +2,24 @@ package com.zwx.codepulse.controller;
 
 import cn.dev33.satoken.annotation.SaCheckRole;
 import cn.dev33.satoken.stp.StpUtil;
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zwx.codepulse.common.BaseResponse;
 import com.zwx.codepulse.common.DeleteRequest;
 import com.zwx.codepulse.common.ResultUtils;
-import com.zwx.codepulse.constant.AppConstant;
 import com.zwx.codepulse.constant.UserConstant;
 import com.zwx.codepulse.exception.ErrorCode;
 import com.zwx.codepulse.exception.ThrowUtils;
 import com.zwx.codepulse.model.dto.AppAddRequest;
 import com.zwx.codepulse.model.dto.AppUpdateRequest;
-import com.zwx.codepulse.model.entity.App;
 import com.zwx.codepulse.model.vo.AppAdminUpdateRequest;
 import com.zwx.codepulse.model.vo.AppQueryRequest;
 import com.zwx.codepulse.model.vo.AppVO;
 import com.zwx.codepulse.service.AppService;
 import jakarta.annotation.Resource;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
 
 /**
  * @author: 张伟旭
@@ -32,6 +30,23 @@ import org.springframework.web.bind.annotation.RestController;
 public class AppController {
     @Resource
     private AppService appService;
+
+    /**
+     * 应用聊天生成代码（流式 SSE）
+     *
+     * @param appId   应用 ID
+     * @param message 用户消息
+     * @return 生成结果流
+     */
+    @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> chatToGenCode(@RequestParam Long appId,
+                                      @RequestParam String message) {
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
+        ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
+        // 调用服务生成代码（流式）
+        return appService.chatToGenCode(appId, message, StpUtil.getLoginIdAsLong());
+    }
+
 
     /**
      * 创建应用
