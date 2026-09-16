@@ -36,4 +36,5 @@ public interface AppService {
     Page<AppVO> listAppVOByPageByAdmin(AppQueryRequest appQueryRequest);
     AppVO getAppVOByIdByAdmin(Long id);
     Flux<String> chatToGenCode(Long appId, String message, Long userId);
+    String deployApp(Long appId, Long userId);
 }

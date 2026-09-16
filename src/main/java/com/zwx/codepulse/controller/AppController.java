@@ -3,6 +3,7 @@ package com.zwx.codepulse.controller;
 import cn.dev33.satoken.annotation.SaCheckRole;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zwx.codepulse.common.BaseResponse;
 import com.zwx.codepulse.common.DeleteRequest;
@@ -13,13 +14,19 @@ import com.zwx.codepulse.exception.ThrowUtils;
 import com.zwx.codepulse.model.dto.AppAddRequest;
 import com.zwx.codepulse.model.dto.AppUpdateRequest;
 import com.zwx.codepulse.model.vo.AppAdminUpdateRequest;
+import com.zwx.codepulse.model.vo.AppDeployRequest;
 import com.zwx.codepulse.model.vo.AppQueryRequest;
 import com.zwx.codepulse.model.vo.AppVO;
 import com.zwx.codepulse.service.AppService;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import java.util.Map;
 
 /**
  * @author: 张伟旭
@@ -39,13 +46,47 @@ public class AppController {
      * @return 生成结果流
      */
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> chatToGenCode(@RequestParam Long appId,
-                                      @RequestParam String message) {
+    public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId,
+                                                       @RequestParam String message) {
+        // 参数校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
         ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
         // 调用服务生成代码（流式）
-        return appService.chatToGenCode(appId, message, StpUtil.getLoginIdAsLong());
+        Flux<String> contentFlux = appService.chatToGenCode(appId, message, StpUtil.getLoginIdAsLong());
+        // 转换为 ServerSentEvent 格式
+        return contentFlux
+                .map(chunk -> {
+                    // 将内容包装成JSON对象
+                    Map<String, String> wrapper = Map.of("d", chunk);
+                    String jsonData = JSONUtil.toJsonStr(wrapper);
+                    return ServerSentEvent.<String>builder()
+                            .data(jsonData)
+                            .build();
+                })
+                .concatWith(Mono.just(
+                        // 发送结束事件
+                        ServerSentEvent.<String>builder()
+                                .event("done")
+                                .data("")
+                                .build()
+                ));
     }
+    /**
+     * 应用部署
+     *
+     * @param appDeployRequest 部署请求
+     * @return 部署 URL
+     */
+    @PostMapping("/deploy")
+    public BaseResponse<String> deployApp(@RequestBody AppDeployRequest appDeployRequest) {
+        ThrowUtils.throwIf(appDeployRequest == null, ErrorCode.PARAMS_ERROR);
+        Long appId = appDeployRequest.getAppId();
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+        // 调用服务部署应用
+        String deployUrl = appService.deployApp(appId, StpUtil.getLoginIdAsLong());
+        return ResultUtils.success(deployUrl);
+    }
+
 
 
     /**
