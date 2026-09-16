@@ -83,7 +83,7 @@ const columns = [
   },
 ]
 
-// 数据
+// 展示的数据
 const data = ref<API.UserVO[]>([])
 const total = ref(0)
 
@@ -106,7 +106,6 @@ const fetchData = async () => {
   }
 }
 
-
 // 分页参数
 const pagination = computed(() => {
   return {
@@ -119,12 +118,13 @@ const pagination = computed(() => {
 })
 
 // 表格分页变化时的操作
-const doTableChange = (page: any) => {
+const doTableChange = (page: { current: number; pageSize: number }) => {
   searchParams.pageNum = page.current
   searchParams.pageSize = page.pageSize
   fetchData()
 }
 
+// 搜索数据
 const doSearch = () => {
   // 重置页码
   searchParams.pageNum = 1
@@ -152,7 +152,10 @@ onMounted(() => {
 })
 </script>
 
-<style>
+<style scoped>
 #userManagePage {
+  padding: 24px;
+  background: white;
+  margin-top: 16px;
 }
 </style>

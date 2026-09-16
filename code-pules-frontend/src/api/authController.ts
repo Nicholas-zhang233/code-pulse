@@ -4,7 +4,7 @@ import request from '@/request'
 
 /** 此处后端没有提供注释 GET /auth/isLogin */
 export async function isLogin(options?: { [key: string]: any }) {
-  return request<API.BaseResponse>('/auth/isLogin', {
+  return request<API.BaseResponseBoolean>('/auth/isLogin', {
     method: 'GET',
     ...(options || {}),
   })
@@ -12,7 +12,7 @@ export async function isLogin(options?: { [key: string]: any }) {
 
 /** 此处后端没有提供注释 POST /auth/login */
 export async function login(body: API.UserLoginRequest, options?: { [key: string]: any }) {
-  return request<API.BaseResponse>('/auth/login', {
+  return request<API.BaseResponseString>('/auth/login', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -24,7 +24,7 @@ export async function login(body: API.UserLoginRequest, options?: { [key: string
 
 /** 此处后端没有提供注释 POST /auth/logout */
 export async function logout(options?: { [key: string]: any }) {
-  return request<API.BaseResponse>('/auth/logout', {
+  return request<API.BaseResponseString>('/auth/logout', {
     method: 'POST',
     ...(options || {}),
   })
@@ -35,7 +35,7 @@ export async function userRegister(
   body: API.UserRegisterRequest,
   options?: { [key: string]: any }
 ) {
-  return request<API.BaseResponse>('/auth/register', {
+  return request<API.BaseResponseString>('/auth/register', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -47,7 +47,7 @@ export async function userRegister(
 
 /** 此处后端没有提供注释 GET /auth/userInfo */
 export async function getUserInfo(options?: { [key: string]: any }) {
-  return request<API.BaseResponse>('/auth/userInfo', {
+  return request<API.BaseResponseLoginUserVO>('/auth/userInfo', {
     method: 'GET',
     ...(options || {}),
   })
