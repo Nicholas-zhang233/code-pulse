@@ -117,7 +117,7 @@ declare namespace API {
   }
 
   type getAppVOByIdParams = {
-    arg0: number
+    id: number
   }
 
   type getUserByIdParams = {
