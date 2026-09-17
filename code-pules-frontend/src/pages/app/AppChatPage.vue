@@ -148,14 +148,14 @@ import {
   deployApp as deployAppApi,
   deleteApp as deleteAppApi,
 } from '@/api/appController'
+import { streamChatToGenCode } from '@/api/chatStream'
 import { CodeGenTypeEnum } from '@/utils/codeGenTypes'
-import request from '@/request'
 
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import AppDetailModal from '@/components/AppDetailModal.vue'
 import DeploySuccessModal from '@/components/DeploySuccessModal.vue'
 import aiAvatar from '@/assets/aiAvatar.png'
-import { API_BASE_URL, getStaticPreviewUrl } from '@/config/env'
+import { getStaticPreviewUrl } from '@/config/env'
 
 import {
   CloudUploadOutlined,
@@ -184,6 +184,8 @@ const userInput = ref('')
 const isGenerating = ref(false)
 const messagesContainer = ref<HTMLElement>()
 const hasInitialConversation = ref(false) // 标记是否已经进行过初始对话
+// 流式请求的中断控制器
+let abortController: AbortController | null = null
 
 // 预览相关
 const previewUrl = ref('')
@@ -301,96 +303,66 @@ const sendMessage = async () => {
   await generateCode(message, aiMessageIndex)
 }
 
-// 生成代码 - 使用 EventSource 处理流式响应
+// 生成代码 - 使用 fetch 流式读取（SSE），以便携带 Authorization 请求头
 const generateCode = async (userMessage: string, aiMessageIndex: number) => {
-  let eventSource: EventSource | null = null
-  let streamCompleted = false
+  // 先中断上一次的流式请求，避免重复生成
+  abortController?.abort()
+  const controller = new AbortController()
+  abortController = controller
+
+  let fullContent = ''
 
   try {
-    // 获取 axios 配置的 baseURL
-    const baseURL = request.defaults.baseURL || API_BASE_URL
-
-    // 构建URL参数
-    const params = new URLSearchParams({
-      appId: appId.value || '',
-      message: userMessage,
-    })
-
-    const url = `${baseURL}/app/chat/gen/code?${params}`
-
-    // 创建 EventSource 连接
-    eventSource = new EventSource(url, {
-      withCredentials: true,
-    })
-
-    let fullContent = ''
-
-    // 处理接收到的消息
-    eventSource.onmessage = function (event) {
-      if (streamCompleted) return
-
-      try {
-        // 解析JSON包装的数据
-        const parsed = JSON.parse(event.data)
-        const content = parsed.d
-
-        // 拼接内容
-        if (content !== undefined && content !== null) {
-          fullContent += content
+    await streamChatToGenCode(
+      {
+        appId: appId.value || '',
+        message: userMessage,
+      },
+      {
+        // 处理接收到的增量内容
+        onMessage: (chunk) => {
+          fullContent += chunk
           messages.value[aiMessageIndex].content = fullContent
           messages.value[aiMessageIndex].loading = false
           scrollToBottom()
-        }
-      } catch (error) {
-        console.error('解析消息失败:', error)
-        handleError(error, aiMessageIndex)
-      }
-    }
-
-    // 处理done事件
-    eventSource.addEventListener('done', function () {
-      if (streamCompleted) return
-
-      streamCompleted = true
-      isGenerating.value = false
-      eventSource?.close()
-
-      // 延迟更新预览，确保后端已完成处理
-      setTimeout(async () => {
-        await fetchAppInfo()
-        updatePreview()
-      }, 1000)
-    })
-
-    // 处理错误
-    eventSource.onerror = function () {
-      if (streamCompleted || !isGenerating.value) return
-      // 检查是否是正常的连接关闭
-      if (eventSource?.readyState === EventSource.CONNECTING) {
-        streamCompleted = true
-        isGenerating.value = false
-        eventSource?.close()
-
-        setTimeout(async () => {
-          await fetchAppInfo()
-          updatePreview()
-        }, 1000)
-      } else {
-        handleError(new Error('SSE连接错误'), aiMessageIndex)
-      }
-    }
+        },
+        // 后端发送的 business-error 事件
+        onError: (errorMessage) => {
+          handleError(new Error(errorMessage), aiMessageIndex)
+        },
+        // 处理 done 事件
+        onDone: () => {
+          isGenerating.value = false
+          // 延迟更新预览，确保后端已完成处理
+          setTimeout(async () => {
+            await fetchAppInfo()
+            updatePreview()
+          }, 1000)
+        },
+      },
+      controller.signal,
+    )
   } catch (error) {
-    console.error('创建 EventSource 失败：', error)
+    // 组件卸载或重新发送导致的中断，无需提示
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      return
+    }
     handleError(error, aiMessageIndex)
+  } finally {
+    if (abortController === controller) {
+      abortController = null
+    }
   }
 }
 
 // 错误处理函数
 const handleError = (error: unknown, aiMessageIndex: number) => {
   console.error('生成代码失败：', error)
-  messages.value[aiMessageIndex].content = '抱歉，生成过程中出现了错误，请重试。'
+  // 优先展示后端返回的错误信息（如未登录、无权限），便于定位问题
+  const errorMessage = error instanceof Error && error.message ? error.message : '生成失败，请重试'
+  messages.value[aiMessageIndex].content = `抱歉，生成过程中出现了错误：${errorMessage}`
   messages.value[aiMessageIndex].loading = false
-  message.error('生成失败，请重试')
+  message.error(errorMessage)
   isGenerating.value = false
 }
 
@@ -398,8 +370,9 @@ const handleError = (error: unknown, aiMessageIndex: number) => {
 const updatePreview = () => {
   if (appId.value) {
     const codeGenType = appInfo.value?.codeGenType || CodeGenTypeEnum.HTML
-    const newPreviewUrl = getStaticPreviewUrl(codeGenType, appId.value)
-    previewUrl.value = newPreviewUrl
+    const staticPreviewUrl = getStaticPreviewUrl(codeGenType, appId.value)
+    // 追加时间戳，避免浏览器缓存导致重新生成后 iframe 不刷新
+    previewUrl.value = `${staticPreviewUrl}?t=${Date.now()}`
     previewReady.value = true
   }
 }
@@ -491,7 +464,9 @@ onMounted(() => {
 
 // 清理资源
 onUnmounted(() => {
-  // EventSource 会在组件卸载时自动清理
+  // 中断未完成的流式请求
+  abortController?.abort()
+  abortController = null
 })
 </script>
 

@@ -39,3 +39,4 @@ build/
 /src/main/resources/application/prod/application-local.yml
 /src/main/resources/application/test/application-local.yml
 /.agent/
+/temp/

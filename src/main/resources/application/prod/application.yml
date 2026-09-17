@@ -85,6 +85,7 @@ sa-token-custom:
   include-paths: # 需要拦截的路径
     - "/**"
   exclude-paths: # 放行白名单路径
+    - "/static/**" # 生成结果预览（deployKey 即访问凭据，无需登录）
     - "/auth/login"
     - "/auth/register"
     - "/doc.html"
