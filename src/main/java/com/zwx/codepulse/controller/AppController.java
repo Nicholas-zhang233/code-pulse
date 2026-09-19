@@ -20,6 +20,8 @@ import com.zwx.codepulse.model.vo.AppVO;
 import com.zwx.codepulse.service.AppService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.apache.ibatis.annotations.Param;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
@@ -47,9 +49,13 @@ public class AppController {
      * @param message 用户消息
      * @return 生成结果流
      */
+    @Operation(summary = "应用聊天生成代码")
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId,
-                                                       @RequestParam String message) {
+    public Flux<ServerSentEvent<String>> chatToGenCode(
+            @Parameter(description = "应用 ID", required = true)
+            @RequestParam("appId") Long appId,
+            @Parameter(description = "用户消息", required = true)
+            @RequestParam("message") String message) {
         // 参数校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
         ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "用户消息不能为空");

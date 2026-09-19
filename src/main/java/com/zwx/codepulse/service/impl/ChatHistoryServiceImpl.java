@@ -18,6 +18,7 @@ import com.zwx.codepulse.model.vo.UserVO;
 import com.zwx.codepulse.service.AppService;
 import com.zwx.codepulse.service.ChatHistoryService;
 import jakarta.annotation.Resource;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -31,6 +32,7 @@ import java.time.LocalDateTime;
 public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatHistory> implements ChatHistoryService {
 
     @Resource
+    @Lazy
     private AppService appService;
 
     @Override
@@ -121,5 +123,13 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
         return this.page(Page.of(1, pageSize), queryWrapper);
     }
 
-
+    @Override
+    public Page<ChatHistory> listAllChatHistoryByPageForAdmin(ChatHistoryQueryRequest chatHistoryQueryRequest) {
+        ThrowUtils.throwIf(chatHistoryQueryRequest == null, ErrorCode.PARAMS_ERROR);
+        long pageNum = chatHistoryQueryRequest.getPageNum();
+        long pageSize = chatHistoryQueryRequest.getPageSize();
+        // 查询数据
+        QueryWrapper<ChatHistory> queryWrapper = this.getQueryWrapper(chatHistoryQueryRequest);
+        return this.page(Page.of(pageNum, pageSize), queryWrapper);
+    }
 }

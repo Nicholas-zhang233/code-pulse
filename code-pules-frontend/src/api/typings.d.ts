@@ -79,6 +79,12 @@ declare namespace API {
     message?: string
   }
 
+  type BaseResponsePageChatHistory = {
+    code?: number
+    data?: PageChatHistory
+    message?: string
+  }
+
   type BaseResponsePageUserVO = {
     code?: number
     data?: PageUserVO
@@ -103,9 +109,35 @@ declare namespace API {
     message?: string
   }
 
+  type ChatHistory = {
+    id?: number
+    message?: string
+    messageType?: string
+    appId?: number
+    userId?: number
+    createTime?: string
+    updateTime?: string
+    isDelete?: number
+  }
+
+  type ChatHistoryQueryRequest = {
+    pageNum?: number
+    pageSize?: number
+    sortField?: string
+    sortOrder?: string
+    id?: number
+    message?: string
+    messageType?: string
+    appId?: number
+    userId?: number
+    lastCreateTime?: string
+  }
+
   type chatToGenCodeParams = {
-    arg0: number
-    arg1: string
+    /** 应用 ID */
+    appId: number
+    /** 用户消息 */
+    message: string
   }
 
   type DeleteRequest = {
@@ -113,7 +145,7 @@ declare namespace API {
   }
 
   type getAppVOByIdByAdminParams = {
-    arg0: number
+    id: number
   }
 
   type getAppVOByIdParams = {
@@ -121,11 +153,17 @@ declare namespace API {
   }
 
   type getUserByIdParams = {
-    arg0: number
+    id: number
   }
 
   type getUserVOByIdParams = {
-    arg0: number
+    id: number
+  }
+
+  type listAppChatHistoryParams = {
+    appId: number
+    pageSize?: number
+    lastCreateTime?: string
   }
 
   type LoginUserVO = {
@@ -158,6 +196,20 @@ declare namespace API {
     pages?: number
   }
 
+  type PageChatHistory = {
+    records?: ChatHistory[]
+    total?: number
+    size?: number
+    current?: number
+    orders?: OrderItem[]
+    optimizeCountSql?: PageChatHistory
+    searchCount?: PageChatHistory
+    optimizeJoinOfCountSql?: boolean
+    maxLimit?: number
+    countId?: string
+    pages?: number
+  }
+
   type PageUserVO = {
     records?: UserVO[]
     total?: number
@@ -173,6 +225,10 @@ declare namespace API {
   }
 
   type ServerSentEventString = true
+
+  type serveStaticResourceParams = {
+    deployKey: string
+  }
 
   type User = {
     id?: number

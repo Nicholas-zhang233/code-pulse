@@ -26,4 +26,6 @@ public interface ChatHistoryService {
     Page<ChatHistory> listAppChatHistoryByPage(Long appId, int pageSize,
                                                LocalDateTime lastCreateTime,
                                                LoginUserVO loginUser);
+
+    Page<ChatHistory> listAllChatHistoryByPageForAdmin(ChatHistoryQueryRequest chatHistoryQueryRequest);
 }
