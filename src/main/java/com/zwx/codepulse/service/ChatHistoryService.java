@@ -7,6 +7,7 @@ import com.zwx.codepulse.model.entity.User;
 import com.zwx.codepulse.model.vo.ChatHistoryQueryRequest;
 import com.zwx.codepulse.model.vo.LoginUserVO;
 import com.zwx.codepulse.model.vo.UserVO;
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 
 import java.time.LocalDateTime;
 
@@ -28,4 +29,5 @@ public interface ChatHistoryService {
                                                LoginUserVO loginUser);
 
     Page<ChatHistory> listAllChatHistoryByPageForAdmin(ChatHistoryQueryRequest chatHistoryQueryRequest);
+    int loadChatHistoryToMemory(Long appId, MessageWindowChatMemory chatMemory, int maxCount);
 }
