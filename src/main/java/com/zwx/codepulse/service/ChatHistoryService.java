@@ -1,8 +1,14 @@
 package com.zwx.codepulse.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zwx.codepulse.model.entity.ChatHistory;
+import com.zwx.codepulse.model.entity.User;
 import com.zwx.codepulse.model.vo.ChatHistoryQueryRequest;
+import com.zwx.codepulse.model.vo.LoginUserVO;
+import com.zwx.codepulse.model.vo.UserVO;
+
+import java.time.LocalDateTime;
 
 /**
  * @author: 张伟旭
@@ -12,6 +18,12 @@ import com.zwx.codepulse.model.vo.ChatHistoryQueryRequest;
 
 public interface ChatHistoryService {
     boolean addChatMessage(Long appId, String message, String messageType, Long userId);
+
     boolean deleteByAppId(Long appId);
+
     QueryWrapper<ChatHistory> getQueryWrapper(ChatHistoryQueryRequest chatHistoryQueryRequest);
+
+    Page<ChatHistory> listAppChatHistoryByPage(Long appId, int pageSize,
+                                               LocalDateTime lastCreateTime,
+                                               LoginUserVO loginUser);
 }

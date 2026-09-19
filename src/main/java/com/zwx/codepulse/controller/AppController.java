@@ -35,6 +35,7 @@ import java.util.Map;
  * @description:
  **/
 @RestController
+@RequestMapping("/app")
 public class AppController {
     @Resource
     private AppService appService;
