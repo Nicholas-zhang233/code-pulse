@@ -11,6 +11,7 @@ import com.zwx.codepulse.model.entity.User;
 import com.zwx.codepulse.model.vo.AppAdminUpdateRequest;
 import com.zwx.codepulse.model.vo.AppQueryRequest;
 import com.zwx.codepulse.model.vo.AppVO;
+import com.zwx.codepulse.model.vo.LoginUserVO;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
@@ -35,6 +36,6 @@ public interface AppService {
     void updateAppByAdmin(AppAdminUpdateRequest appAdminUpdateRequest);
     Page<AppVO> listAppVOByPageByAdmin(AppQueryRequest appQueryRequest);
     AppVO getAppVOByIdByAdmin(Long id);
-    Flux<String> chatToGenCode(Long appId, String message, Long userId);
+    Flux<String> chatToGenCode(Long appId, String message, LoginUserVO loginUser);
     String deployApp(Long appId, Long userId);
 }

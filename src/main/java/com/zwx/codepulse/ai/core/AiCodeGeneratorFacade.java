@@ -1,5 +1,6 @@
 package com.zwx.codepulse.ai.core;
 
+import cn.hutool.json.JSONUtil;
 import com.zwx.codepulse.ai.AiCodeGeneratorService;
 import com.zwx.codepulse.ai.AiCodeGeneratorServiceFactory;
 import com.zwx.codepulse.ai.core.parser.CodeParserExecutor;
@@ -9,6 +10,12 @@ import com.zwx.codepulse.ai.model.MultiFileCodeResult;
 import com.zwx.codepulse.exception.BusinessException;
 import com.zwx.codepulse.exception.ErrorCode;
 import com.zwx.codepulse.model.enums.CodeGenTypeEnum;
+import com.zwx.codepulse.model.message.AiResponseMessage;
+import com.zwx.codepulse.model.message.ToolExecutedMessage;
+import com.zwx.codepulse.model.message.ToolRequestMessage;
+import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.service.TokenStream;
+import dev.langchain4j.service.tool.ToolExecution;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -115,6 +122,36 @@ public class AiCodeGeneratorFacade {
             } catch (Exception e) {
                 log.error("保存失败: {}", e.getMessage());
             }
+        });
+    }
+    /**
+     * 将 TokenStream 转换为 Flux<String>，并传递工具调用信息
+     *
+     * @param tokenStream TokenStream 对象
+     * @return Flux<String> 流式响应
+     */
+    private Flux<String> processTokenStream(TokenStream tokenStream) {
+        return Flux.create(sink -> {
+            tokenStream.onPartialResponse((String partialResponse) -> {
+                        AiResponseMessage aiResponseMessage = new AiResponseMessage(partialResponse);
+                        sink.next(JSONUtil.toJsonStr(aiResponseMessage));
+                    })
+                    .onPartialToolExecutionRequest((index, toolExecutionRequest) -> {
+                        ToolRequestMessage toolRequestMessage = new ToolRequestMessage(toolExecutionRequest);
+                        sink.next(JSONUtil.toJsonStr(toolRequestMessage));
+                    })
+                    .onToolExecuted((ToolExecution toolExecution) -> {
+                        ToolExecutedMessage toolExecutedMessage = new ToolExecutedMessage(toolExecution);
+                        sink.next(JSONUtil.toJsonStr(toolExecutedMessage));
+                    })
+                    .onCompleteResponse((ChatResponse response) -> {
+                        sink.complete();
+                    })
+                    .onError((Throwable error) -> {
+                        error.printStackTrace();
+                        sink.error(error);
+                    })
+                    .start();
         });
     }
 

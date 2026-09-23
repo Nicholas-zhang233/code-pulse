@@ -13,11 +13,9 @@ import com.zwx.codepulse.exception.ErrorCode;
 import com.zwx.codepulse.exception.ThrowUtils;
 import com.zwx.codepulse.model.dto.AppAddRequest;
 import com.zwx.codepulse.model.dto.AppUpdateRequest;
-import com.zwx.codepulse.model.vo.AppAdminUpdateRequest;
-import com.zwx.codepulse.model.vo.AppDeployRequest;
-import com.zwx.codepulse.model.vo.AppQueryRequest;
-import com.zwx.codepulse.model.vo.AppVO;
+import com.zwx.codepulse.model.vo.*;
 import com.zwx.codepulse.service.AppService;
+import com.zwx.codepulse.service.UserService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -41,6 +39,8 @@ import java.util.Map;
 public class AppController {
     @Resource
     private AppService appService;
+    @Resource
+    private UserService userService;
 
     /**
      * 应用聊天生成代码（流式 SSE）
@@ -59,8 +59,10 @@ public class AppController {
         // 参数校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
         ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
+        LoginUserVO loginUser = userService.getLoginUserVO(StpUtil.getLoginIdAsLong());
+        ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
         // 调用服务生成代码（流式）
-        Flux<String> contentFlux = appService.chatToGenCode(appId, message, StpUtil.getLoginIdAsLong());
+        Flux<String> contentFlux = appService.chatToGenCode(appId, message, loginUser);
         // 转换为 ServerSentEvent 格式
         return contentFlux
                 .map(chunk -> {
