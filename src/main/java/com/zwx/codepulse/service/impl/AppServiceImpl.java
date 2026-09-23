@@ -155,7 +155,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
                 .userId(userId)
                 .initPrompt(initPrompt)
                 // 暂时设置为多文件生成
-                .codeGenType(CodeGenTypeEnum.MULTI_FILE.getValue())
+                .codeGenType(CodeGenTypeEnum.VUE_PROJECT.getValue())
                 // 应用名称暂时为 initPrompt 前 12 位
                 .appName(initPrompt.substring(0, Math.min(initPrompt.length(), 12)))
                 .build();
