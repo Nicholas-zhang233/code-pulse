@@ -1,6 +1,5 @@
 package com.zwx.codepulse.ai.core.handler;
 
-import com.zwx.codepulse.model.entity.User;
 import com.zwx.codepulse.model.enums.ChatHistoryMessageTypeEnum;
 import com.zwx.codepulse.model.vo.LoginUserVO;
 import com.zwx.codepulse.service.ChatHistoryService;
