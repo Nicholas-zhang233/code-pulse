@@ -8,18 +8,24 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zwx.codepulse.common.BaseResponse;
 import com.zwx.codepulse.common.DeleteRequest;
 import com.zwx.codepulse.common.ResultUtils;
+import com.zwx.codepulse.constant.AppConstant;
 import com.zwx.codepulse.constant.UserConstant;
+import com.zwx.codepulse.exception.BusinessException;
 import com.zwx.codepulse.exception.ErrorCode;
 import com.zwx.codepulse.exception.ThrowUtils;
 import com.zwx.codepulse.model.dto.AppAddRequest;
 import com.zwx.codepulse.model.dto.AppUpdateRequest;
+import com.zwx.codepulse.model.entity.App;
+import com.zwx.codepulse.model.entity.User;
 import com.zwx.codepulse.model.vo.*;
 import com.zwx.codepulse.service.AppService;
+import com.zwx.codepulse.service.ProjectDownloadService;
 import com.zwx.codepulse.service.UserService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.ibatis.annotations.Param;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
@@ -27,6 +33,7 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.io.File;
 import java.util.Map;
 
 /**
@@ -41,6 +48,8 @@ public class AppController {
     private AppService appService;
     @Resource
     private UserService userService;
+    @Resource
+    private ProjectDownloadService projectDownloadService;
 
     /**
      * 应用聊天生成代码（流式 SSE）
@@ -227,6 +236,38 @@ public class AppController {
         ThrowUtils.throwIf(id <= 0, ErrorCode.PARAMS_ERROR);
         AppVO appVO = appService.getAppVOByIdByAdmin(id);
         return ResultUtils.success(appVO);
+    }
+    /**
+     * 下载应用代码
+     *
+     * @param appId    应用ID
+     * @param response 响应
+     */
+    @GetMapping("/download/{appId}")
+    public void downloadAppCode(@PathVariable Long appId,
+                                HttpServletResponse response) {
+        // 1. 基础校验
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
+        // 2. 查询应用信息
+        AppVO app = appService.getAppVOById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        // 3. 权限校验：只有应用创建者可以下载代码
+        long userId = StpUtil.getLoginIdAsLong();
+        if (!app.getUserId().equals(userId)) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限下载该应用代码");
+        }
+        // 4. 构建应用代码目录路径（生成目录，非部署目录）
+        String codeGenType = app.getCodeGenType();
+        String sourceDirName = codeGenType + "_" + appId;
+        String sourceDirPath = AppConstant.CODE_OUTPUT_ROOT_DIR + File.separator + sourceDirName;
+        // 5. 检查代码目录是否存在
+        File sourceDir = new File(sourceDirPath);
+        ThrowUtils.throwIf(!sourceDir.exists() || !sourceDir.isDirectory(),
+                ErrorCode.NOT_FOUND_ERROR, "应用代码不存在，请先生成代码");
+        // 6. 生成下载文件名（不建议添加中文内容）
+        String downloadFileName = String.valueOf(appId);
+        // 7. 调用通用下载服务
+        projectDownloadService.downloadProjectAsZip(sourceDirPath, downloadFileName, response);
     }
 
 
