@@ -59,7 +59,7 @@ public class WebScreenshotUtils {
         }
         // 创建临时目录
         try {
-            String rootPath = System.getProperty("user.dir") + "/tmp/screenshots/" + UUID.randomUUID().toString().substring(0, 8);
+            String rootPath = System.getProperty("user.dir") + "/temp/screenshots/" + UUID.randomUUID().toString().substring(0, 8);
             FileUtil.mkdir(rootPath);
             // 图片后缀
             final String IMAGE_SUFFIX = ".png";

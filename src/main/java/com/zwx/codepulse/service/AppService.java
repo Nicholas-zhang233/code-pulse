@@ -36,6 +36,28 @@ public interface AppService {
     void updateAppByAdmin(AppAdminUpdateRequest appAdminUpdateRequest);
     Page<AppVO> listAppVOByPageByAdmin(AppQueryRequest appQueryRequest);
     AppVO getAppVOByIdByAdmin(Long id);
+    /**
+     * 通过对话生成应用代码
+     *
+     * @param appId 应用 ID
+     * @param message 提示词
+     * @param loginUser 登录用户
+     * @return
+     */
     Flux<String> chatToGenCode(Long appId, String message, LoginUserVO loginUser);
+    /**
+     * 应用部署
+     *
+     * @param appId 应用 ID
+     * @param userId 登录用户 ID
+     * @return 可访问的部署地址
+     */
     String deployApp(Long appId, Long userId);
+    /**
+     * 异步生成应用截图并更新封面
+     *
+     * @param appId  应用ID
+     * @param appUrl 应用访问URL
+     */
+    void generateAppScreenshotAsync(Long appId, String appUrl);
 }

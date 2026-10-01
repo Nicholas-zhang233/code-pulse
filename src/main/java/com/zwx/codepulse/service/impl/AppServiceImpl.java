@@ -26,9 +26,11 @@ import com.zwx.codepulse.model.enums.CodeGenTypeEnum;
 import com.zwx.codepulse.model.vo.*;
 import com.zwx.codepulse.service.AppService;
 import com.zwx.codepulse.service.ChatHistoryService;
+import com.zwx.codepulse.service.ScreenshotService;
 import com.zwx.codepulse.service.UserService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 import reactor.core.publisher.Flux;
@@ -143,8 +145,32 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         updateApp.setDeployedTime(LocalDateTime.now());
         boolean updateResult = this.updateById(updateApp);
         ThrowUtils.throwIf(!updateResult, ErrorCode.OPERATION_ERROR, "更新应用部署信息失败");
-        // 10. 返回可访问的 URL 地址
-        return String.format("%s/%s", AppConstant.CODE_DEPLOY_HOST, deployKey);
+        // 10. 得到可访问的 URL 地址
+        String appDeployUrl = String.format("%s/%s", AppConstant.CODE_DEPLOY_HOST, deployKey);
+        // 11. 异步生成截图并且更新应用封面
+        generateAppScreenshotAsync(appId, appDeployUrl);
+        return appDeployUrl;
+    }
+
+    @Resource
+    private ScreenshotService screenshotService;
+    /**
+     * 异步生成应用截图并更新封面
+     *
+     * @param appId  应用ID
+     * @param appUrl 应用访问URL
+     */
+    @Override
+    @Async("screenshotAsyncExecutor")
+    public void generateAppScreenshotAsync(Long appId, String appUrl) {
+        // 调用截图服务生成截图并上传
+        String screenshotUrl = screenshotService.generateAndUploadScreenshot(appUrl);
+        // 更新应用封面字段
+        App updateApp = new App();
+        updateApp.setId(appId);
+        updateApp.setCover(screenshotUrl);
+        boolean updated = this.updateById(updateApp);
+        ThrowUtils.throwIf(!updated, ErrorCode.OPERATION_ERROR, "更新应用封面字段失败");
     }
 
 
