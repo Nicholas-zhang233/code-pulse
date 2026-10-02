@@ -8,6 +8,7 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.zwx.codepulse.ai.AiCodeGenTypeRoutingService;
 import com.zwx.codepulse.ai.core.AiCodeGeneratorFacade;
 import com.zwx.codepulse.ai.core.builder.VueProjectBuilder;
 import com.zwx.codepulse.ai.core.handler.StreamHandlerExecutor;
@@ -174,22 +175,30 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     }
 
 
+    @Resource
+    private AiCodeGenTypeRoutingService aiCodeGenTypeRoutingService;
+
     @Override
-    public Long createApp(@Validated AppAddRequest appAddRequest, Long userId) {
+    public Long createApp(AppAddRequest appAddRequest, Long userId) {
+        // 参数校验
         String initPrompt = appAddRequest.getInitPrompt();
-        App app = App.builder()
-                .userId(userId)
-                .initPrompt(initPrompt)
-                // 暂时设置为多文件生成
-                .codeGenType(CodeGenTypeEnum.VUE_PROJECT.getValue())
-                // 应用名称暂时为 initPrompt 前 12 位
-                .appName(initPrompt.substring(0, Math.min(initPrompt.length(), 12)))
-                .build();
+        ThrowUtils.throwIf(StrUtil.isBlank(initPrompt), ErrorCode.PARAMS_ERROR, "初始化 prompt 不能为空");
+        // 构造入库对象
+        App app = new App();
+        BeanUtil.copyProperties(appAddRequest, app);
+        app.setUserId(userId);
+        // 应用名称暂时为 initPrompt 前 12 位
+        app.setAppName(initPrompt.substring(0, Math.min(initPrompt.length(), 12)));
+        // 使用 AI 智能选择代码生成类型
+        CodeGenTypeEnum selectedCodeGenType = aiCodeGenTypeRoutingService.routeCodeGenType(initPrompt);
+        app.setCodeGenType(selectedCodeGenType.getValue());
         // 插入数据库
         boolean result = this.save(app);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        log.info("应用创建成功，ID: {}, 类型: {}", app.getId(), selectedCodeGenType.getValue());
         return app.getId();
     }
+
 
     @Override
     public void updateAppName(AppUpdateRequest appUpdateRequest, Long userId) {
