@@ -71,7 +71,7 @@ sa-token:
   # 是否输出操作日志
   is-log: true
   # 是否从 cookie 中读取 token
-  is-read-cookie: false
+  is-read-cookie: true
   # 是否从 header 中读取 token
   is-read-header: true
   # token 前缀

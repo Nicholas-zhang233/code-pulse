@@ -70,13 +70,51 @@
           </div>
         </div>
 
+        <!-- 选中元素信息展示 -->
+        <a-alert
+          v-if="selectedElementInfo"
+          class="selected-element-alert"
+          type="info"
+          closable
+          @close="clearSelectedElement"
+        >
+          <template #message>
+            <div class="selected-element-info">
+              <div class="element-header">
+                <span class="element-tag">
+                  选中元素：{{ selectedElementInfo.tagName.toLowerCase() }}
+                </span>
+                <span v-if="selectedElementInfo.id" class="element-id">
+                  #{{ selectedElementInfo.id }}
+                </span>
+                <span v-if="selectedElementInfo.className" class="element-class">
+                  .{{ selectedElementInfo.className.split(' ').join('.') }}
+                </span>
+              </div>
+              <div class="element-details">
+                <div v-if="selectedElementInfo.textContent" class="element-item">
+                  内容: {{ selectedElementInfo.textContent.substring(0, 50) }}
+                  {{ selectedElementInfo.textContent.length > 50 ? '...' : '' }}
+                </div>
+                <div v-if="selectedElementInfo.pagePath" class="element-item">
+                  页面路径: {{ selectedElementInfo.pagePath }}
+                </div>
+                <div class="element-item">
+                  选择器:
+                  <code class="element-selector-code">{{ selectedElementInfo.selector }}</code>
+                </div>
+              </div>
+            </div>
+          </template>
+        </a-alert>
+
         <!-- 用户消息输入框 -->
         <div class="input-container">
           <div class="input-wrapper">
             <a-tooltip v-if="!isOwner" title="无法在别人的作品下对话哦~" placement="top">
               <a-textarea
                 v-model:value="userInput"
-                placeholder="请描述你想生成的网站，越详细效果越好哦"
+                :placeholder="getInputPlaceholder()"
                 :rows="4"
                 :maxlength="1000"
                 @keydown.enter.prevent="sendMessage"
@@ -86,7 +124,7 @@
             <a-textarea
               v-else
               v-model:value="userInput"
-              placeholder="请描述你想生成的网站，越详细效果越好哦"
+              :placeholder="getInputPlaceholder()"
               :rows="4"
               :maxlength="1000"
               @keydown.enter.prevent="sendMessage"
@@ -112,6 +150,19 @@
         <div class="preview-header">
           <h3>生成后的网页展示</h3>
           <div class="preview-actions">
+            <a-button
+              v-if="isOwner && previewUrl"
+              type="link"
+              :danger="isEditMode"
+              @click="toggleEditMode"
+              :class="{ 'edit-mode-active': isEditMode }"
+              style="padding: 0; height: auto; margin-right: 12px"
+            >
+              <template #icon>
+                <EditOutlined />
+              </template>
+              {{ isEditMode ? '退出编辑' : '编辑模式' }}
+            </a-button>
             <a-button v-if="previewUrl" type="link" @click="openInNewTab">
               <template #icon>
                 <ExportOutlined />
@@ -159,31 +210,33 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { ref, onMounted, nextTick, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser'
 import {
-  deleteApp as deleteAppApi,
-  deployApp as deployAppApi,
   getAppVoById,
+  deployApp as deployAppApi,
+  deleteApp as deleteAppApi,
 } from '@/api/appController'
 import { listAppChatHistory } from '@/api/chatHistoryController'
 import { CodeGenTypeEnum, formatCodeGenType } from '@/utils/codeGenTypes'
 import request from '@/request'
+import { fetchSse } from '@/utils/sse'
 
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import AppDetailModal from '@/components/AppDetailModal.vue'
 import DeploySuccessModal from '@/components/DeploySuccessModal.vue'
 import aiAvatar from '@/assets/aiAvatar.png'
 import { API_BASE_URL, getStaticPreviewUrl } from '@/config/env'
-
+import { VisualEditor, type ElementInfo } from '@/utils/visualEditor.ts'
 import {
   CloudUploadOutlined,
   SendOutlined,
   ExportOutlined,
   InfoCircleOutlined,
   DownloadOutlined,
+  EditOutlined,
 } from '@ant-design/icons-vue'
 
 const route = useRoute()
@@ -221,6 +274,18 @@ const previewReady = ref(false)
 const deploying = ref(false)
 const deployModalVisible = ref(false)
 const deployUrl = ref('')
+
+// 下载相关
+const downloading = ref(false)
+
+// 可视化编辑相关
+const isEditMode = ref(false)
+const selectedElementInfo = ref<ElementInfo | null>(null)
+const visualEditor = new VisualEditor({
+  onElementSelected: (elementInfo: ElementInfo) => {
+    selectedElementInfo.value = elementInfo
+  },
+})
 
 // 权限相关
 const isOwner = computed(() => {
@@ -366,14 +431,33 @@ const sendMessage = async () => {
     return
   }
 
-  const message = userInput.value.trim()
+  let message = userInput.value.trim()
+  // 如果有选中的元素，将元素信息添加到提示词中
+  if (selectedElementInfo.value) {
+    let elementContext = `\n\n选中元素信息：`
+    if (selectedElementInfo.value.pagePath) {
+      elementContext += `\n- 页面路径: ${selectedElementInfo.value.pagePath}`
+    }
+    elementContext += `\n- 标签: ${selectedElementInfo.value.tagName.toLowerCase()}\n- 选择器: ${selectedElementInfo.value.selector}`
+    if (selectedElementInfo.value.textContent) {
+      elementContext += `\n- 当前内容: ${selectedElementInfo.value.textContent.substring(0, 100)}`
+    }
+    message += elementContext
+  }
   userInput.value = ''
-
-  // 添加用户消息
+  // 添加用户消息（包含元素信息）
   messages.value.push({
     type: 'user',
     content: message,
   })
+
+  // 发送消息后，清除选中元素并退出编辑模式
+  if (selectedElementInfo.value) {
+    clearSelectedElement()
+    if (isEditMode.value) {
+      toggleEditMode()
+    }
+  }
 
   // 添加AI消息占位符
   const aiMessageIndex = messages.value.length
@@ -391,39 +475,35 @@ const sendMessage = async () => {
   await generateCode(message, aiMessageIndex)
 }
 
-// 生成代码 - 使用 EventSource 处理流式响应
+// 生成代码 - 使用 fetch 流式读取 SSE（EventSource 无法携带 Authorization 请求头）
 const generateCode = async (userMessage: string, aiMessageIndex: number) => {
-  let eventSource: EventSource | null = null
+  const baseURL = request.defaults.baseURL || API_BASE_URL
+  const params = new URLSearchParams({
+    appId: appId.value || '',
+    message: userMessage,
+  })
+  const url = `${baseURL}/app/chat/gen/code?${params}`
+  const token = localStorage.getItem('token')
+
+  let fullContent = ''
   let streamCompleted = false
 
-  try {
-    // 获取 axios 配置的 baseURL
-    const baseURL = request.defaults.baseURL || API_BASE_URL
-
-    // 构建URL参数
-    const params = new URLSearchParams({
-      appId: appId.value || '',
-      message: userMessage,
-    })
-
-    const url = `${baseURL}/app/chat/gen/code?${params}`
-
-    // 创建 EventSource 连接
-    eventSource = new EventSource(url, {
-      withCredentials: true,
-    })
-
-    let fullContent = ''
-
+  await fetchSse({
+    url,
+    token,
     // 处理接收到的消息
-    eventSource.onmessage = function (event) {
+    onMessage: (data, event) => {
       if (streamCompleted) return
-
       try {
         // 解析JSON包装的数据
-        const parsed = JSON.parse(event.data)
+        const parsed = JSON.parse(data)
+        // 后端统一封装的业务错误事件（未登录/无权限等）
+        if (event === 'business-error' || parsed.error) {
+          streamCompleted = true
+          handleError(new Error(parsed.message || '生成失败'), aiMessageIndex)
+          return
+        }
         const content = parsed.d
-
         // 拼接内容
         if (content !== undefined && content !== null) {
           fullContent += content
@@ -433,46 +513,27 @@ const generateCode = async (userMessage: string, aiMessageIndex: number) => {
         }
       } catch (error) {
         console.error('解析消息失败:', error)
-        handleError(error, aiMessageIndex)
       }
-    }
-
+    },
     // 处理done事件
-    eventSource.addEventListener('done', function () {
+    onDone: () => {
       if (streamCompleted) return
-
       streamCompleted = true
       isGenerating.value = false
-      eventSource?.close()
-
+      messages.value[aiMessageIndex].loading = false
       // 延迟更新预览，确保后端已完成处理
       setTimeout(async () => {
         await fetchAppInfo()
         updatePreview()
       }, 1000)
-    })
-
+    },
     // 处理错误
-    eventSource.onerror = function () {
-      if (streamCompleted || !isGenerating.value) return
-      // 检查是否是正常的连接关闭
-      if (eventSource?.readyState === EventSource.CONNECTING) {
-        streamCompleted = true
-        isGenerating.value = false
-        eventSource?.close()
-
-        setTimeout(async () => {
-          await fetchAppInfo()
-          updatePreview()
-        }, 1000)
-      } else {
-        handleError(new Error('SSE连接错误'), aiMessageIndex)
-      }
-    }
-  } catch (error) {
-    console.error('创建 EventSource 失败：', error)
-    handleError(error, aiMessageIndex)
-  }
+    onError: (error) => {
+      if (streamCompleted) return
+      streamCompleted = true
+      handleError(error, aiMessageIndex)
+    },
+  })
 }
 
 // 错误处理函数
@@ -498,6 +559,44 @@ const updatePreview = () => {
 const scrollToBottom = () => {
   if (messagesContainer.value) {
     messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+  }
+}
+
+// 下载代码
+const downloadCode = async () => {
+  if (!appId.value) {
+    message.error('应用ID不存在')
+    return
+  }
+  downloading.value = true
+  try {
+    const API_BASE_URL = request.defaults.baseURL || ''
+    const url = `${API_BASE_URL}/app/download/${appId.value}`
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+    })
+    if (!response.ok) {
+      throw new Error(`下载失败: ${response.status}`)
+    }
+    // 获取文件名
+    const contentDisposition = response.headers.get('Content-Disposition')
+    const fileName = contentDisposition?.match(/filename="(.+)"/)?.[1] || `app-${appId.value}.zip`
+    // 下载文件
+    const blob = await response.blob()
+    const downloadUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    link.download = fileName
+    link.click()
+    // 清理
+    URL.revokeObjectURL(downloadUrl)
+    message.success('代码下载成功')
+  } catch (error) {
+    console.error('下载失败：', error)
+    message.error('下载失败，请重试')
+  } finally {
+    downloading.value = false
   }
 }
 
@@ -546,6 +645,11 @@ const openDeployedSite = () => {
 // iframe加载完成
 const onIframeLoad = () => {
   previewReady.value = true
+  const iframe = document.querySelector('.preview-iframe') as HTMLIFrameElement
+  if (iframe) {
+    visualEditor.init(iframe)
+    visualEditor.onIframeLoad()
+  }
 }
 
 // 编辑应用
@@ -574,55 +678,48 @@ const deleteApp = async () => {
   }
 }
 
-// 下载相关
-const downloading = ref(false)
-
-// 下载代码
-const downloadCode = async () => {
-  if (!appId.value) {
-    message.error('应用ID不存在')
+// 可视化编辑相关函数
+const toggleEditMode = () => {
+  // 检查 iframe 是否已经加载
+  const iframe = document.querySelector('.preview-iframe') as HTMLIFrameElement
+  if (!iframe) {
+    message.warning('请等待页面加载完成')
     return
   }
-  downloading.value = true
-  try {
-    const API_BASE_URL = request.defaults.baseURL || ''
-    const url = `${API_BASE_URL}/app/download/${appId.value}`
-    const response = await fetch(url, {
-      method: 'GET',
-      credentials: 'include',
-    })
-    if (!response.ok) {
-      throw new Error(`下载失败: ${response.status}`)
-    }
-    // 获取文件名
-    const contentDisposition = response.headers.get('Content-Disposition')
-    const fileName = contentDisposition?.match(/filename="(.+)"/)?.[1] || `app-${appId.value}.zip`
-    // 下载文件
-    const blob = await response.blob()
-    const downloadUrl = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = downloadUrl
-    link.download = fileName
-    link.click()
-    // 清理
-    URL.revokeObjectURL(downloadUrl)
-    message.success('代码下载成功')
-  } catch (error) {
-    console.error('下载失败：', error)
-    message.error('下载失败，请重试')
-  } finally {
-    downloading.value = false
+  // 确保 visualEditor 已初始化
+  if (!previewReady.value) {
+    message.warning('请等待页面加载完成')
+    return
   }
+  const newEditMode = visualEditor.toggleEditMode()
+  isEditMode.value = newEditMode
+}
+
+const clearSelectedElement = () => {
+  selectedElementInfo.value = null
+  visualEditor.clearSelection()
+}
+
+const getInputPlaceholder = () => {
+  if (selectedElementInfo.value) {
+    return `正在编辑 ${selectedElementInfo.value.tagName.toLowerCase()} 元素，描述您想要的修改...`
+  }
+  return '请描述你想生成的网站，越详细效果越好哦'
 }
 
 // 页面加载时获取应用信息
 onMounted(() => {
   fetchAppInfo()
+
+  // 监听 iframe 消息
+  window.addEventListener('message', (event) => {
+    visualEditor.handleIframeMessage(event)
+  })
 })
 
 // 清理资源
 onUnmounted(() => {
-  // EventSource 会在组件卸载时自动清理
+  // fetch 流式请求会在组件卸载时随页面一起销毁
 })
 </script>
 
@@ -647,6 +744,10 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.code-gen-type-tag {
+  font-size: 12px;
 }
 
 .app-name {
@@ -682,7 +783,7 @@ onUnmounted(() => {
 }
 
 .messages-container {
-  flex: 1;
+  flex: 0.9;
   padding: 16px;
   overflow-y: auto;
   scroll-behavior: smooth;
@@ -831,8 +932,9 @@ onUnmounted(() => {
   height: 100%;
   border: none;
 }
-.code-gen-type-tag {
-  font-size: 12px;
+
+.selected-element-alert {
+  margin: 0 16px;
 }
 
 /* 响应式设计 */
@@ -864,6 +966,71 @@ onUnmounted(() => {
 
   .message-content {
     max-width: 85%;
+  }
+
+  /* 选中元素信息样式 */
+  .selected-element-alert {
+    margin: 0 16px;
+  }
+
+  .selected-element-info {
+    line-height: 1.4;
+  }
+
+  .element-header {
+    margin-bottom: 8px;
+  }
+
+  .element-details {
+    margin-top: 8px;
+  }
+
+  .element-item {
+    margin-bottom: 4px;
+    font-size: 13px;
+  }
+
+  .element-item:last-child {
+    margin-bottom: 0;
+  }
+
+  .element-tag {
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: #007bff;
+  }
+
+  .element-id {
+    color: #28a745;
+    margin-left: 4px;
+  }
+
+  .element-class {
+    color: #ffc107;
+    margin-left: 4px;
+  }
+
+  .element-selector-code {
+    font-family: 'Monaco', 'Menlo', monospace;
+    background: #f6f8fa;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 12px;
+    color: #d73a49;
+    border: 1px solid #e1e4e8;
+  }
+
+  /* 编辑模式按钮样式 */
+  .edit-mode-active {
+    background-color: #52c41a !important;
+    border-color: #52c41a !important;
+    color: white !important;
+  }
+
+  .edit-mode-active:hover {
+    background-color: #73d13d !important;
+    border-color: #73d13d !important;
   }
 }
 </style>
