@@ -3,10 +3,6 @@ package com.zwx.codepulse.langgraph4j.ai;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 
-/**
- * 图片收集 AI 服务接口
- * 使用 AI 调用工具收集不同类型的图片资源
- */
 public interface ImageCollectionService {
 
     /**
@@ -16,3 +12,4 @@ public interface ImageCollectionService {
     @SystemMessage(fromResource = "prompt/image-collection-system-prompt.txt")
     String collectImages(@UserMessage String userPrompt);
 }
+
