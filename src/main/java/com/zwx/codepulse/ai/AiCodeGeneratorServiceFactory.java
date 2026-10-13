@@ -3,6 +3,7 @@ package com.zwx.codepulse.ai;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.zwx.codepulse.ai.tools.FileWriteTool;
+import com.zwx.codepulse.ai.tools.ToolManager;
 import com.zwx.codepulse.exception.BusinessException;
 import com.zwx.codepulse.exception.ErrorCode;
 import com.zwx.codepulse.model.enums.CodeGenTypeEnum;
@@ -41,6 +42,9 @@ public class AiCodeGeneratorServiceFactory {
 
     @Resource
     private RedisChatMemoryStore redisChatMemoryStore;
+
+    @Resource
+    private ToolManager toolManager;
 
     /**
      * AI 服务实例缓存
@@ -108,7 +112,7 @@ public class AiCodeGeneratorServiceFactory {
             case VUE_PROJECT -> AiServices.builder(AiCodeGeneratorService.class)
                     .streamingChatModel(reasoningStreamingChatModel)
                     .chatMemoryProvider(memoryId -> chatMemory)
-                    .tools(new FileWriteTool())
+                    .tools(toolManager.getAllTools())
                     .hallucinatedToolNameStrategy(toolExecutionRequest -> ToolExecutionResultMessage.from(
                             toolExecutionRequest, "Error: there is no tool called " + toolExecutionRequest.name()
                     ))
