@@ -1,4 +1,4 @@
-package com.zwx.codepulse.langgraph4j;
+package com.zwx.codepulse.langgraph4j.demo;
 import lombok.extern.slf4j.Slf4j;
 import org.bsc.langgraph4j.CompiledGraph;
 import org.bsc.langgraph4j.GraphRepresentation;

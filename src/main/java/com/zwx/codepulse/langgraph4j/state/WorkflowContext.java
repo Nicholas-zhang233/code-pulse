@@ -1,6 +1,7 @@
 package com.zwx.codepulse.langgraph4j.state;
 
 import com.zwx.codepulse.langgraph4j.model.ImageResource;
+import com.zwx.codepulse.langgraph4j.model.QualityResult;
 import com.zwx.codepulse.model.enums.CodeGenTypeEnum;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -71,6 +72,12 @@ public class WorkflowContext implements Serializable {
      * 错误信息
      */
     private String errorMessage;
+
+    /**
+     * 质量检查结果
+     */
+    private QualityResult qualityResult;
+
 
     @Serial
     private static final long serialVersionUID = 1L;
