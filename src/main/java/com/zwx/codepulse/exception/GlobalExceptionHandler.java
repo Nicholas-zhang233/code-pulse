@@ -51,38 +51,6 @@ public class GlobalExceptionHandler {
         return ResultUtils.error(ErrorCode.SYSTEM_ERROR, "系统错误");
     }
 
-    @ExceptionHandler(NotLoginException.class)
-    public BaseResponse<?> NotLoginExceptionHandler(RuntimeException e) {
-        log.error("NotLoginException", e);
-        // 尝试处理 SSE 请求
-        if (handleSseError(ErrorCode.PARAMS_ERROR.getCode(), "没有登录")) {
-            return null;
-        }
-        return ResultUtils.error(ErrorCode.NOT_LOGIN_ERROR, "没有登录");
-    }
-    /**
-     * 处理请求参数格式错误 @RequestBody上使用@Valid 实体上使用@NotNull等，验证失败后抛出的异常是MethodArgumentNotValidException异常
-     */
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    @ResponseBody
-    public BaseResponse<?> MethodArgumentNotValidExceptionHandler(MethodArgumentNotValidException e) {
-        log.error("MethodArgumentNotValidExceptionHandler", e);
-        if (handleSseError(ErrorCode.PARAMS_ERROR.getCode(), e.getBindingResult().getAllErrors().get(0).getDefaultMessage())) {
-            return null;
-        }
-        return ResultUtils.error(ErrorCode.PARAMS_ERROR, e.getBindingResult().getAllErrors().get(0).getDefaultMessage());
-    }
-
-    @ExceptionHandler(NotRoleException.class)
-    @ResponseBody
-    public BaseResponse<?> NotRoleExceptionExceptionHandler(NotRoleException e) {
-        log.error("NotRoleException", e);
-        if (handleSseError(ErrorCode.PARAMS_ERROR.getCode(), "没有权限")){
-            return null;
-        }
-        return ResultUtils.error(ErrorCode.PARAMS_ERROR, "没有权限");
-    }
-
     /**
      * 处理SSE请求的错误响应
      *

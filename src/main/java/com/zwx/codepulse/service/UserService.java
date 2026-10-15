@@ -6,6 +6,7 @@ import com.zwx.codepulse.model.entity.User;
 import com.zwx.codepulse.model.vo.LoginUserVO;
 import com.zwx.codepulse.model.vo.UserQueryRequest;
 import com.zwx.codepulse.model.vo.UserVO;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.List;
 
@@ -24,5 +25,7 @@ public interface UserService extends IService<User> {
     UserVO getUserVO(User user);
     QueryWrapper<User> getQueryWrapper(UserQueryRequest userQueryRequest);
     List<UserVO> getUserVOList(List<User> userList);
+
+    User getLoginUser(HttpServletRequest request);
 
 }

@@ -18,6 +18,8 @@ import com.zwx.codepulse.model.dto.AppUpdateRequest;
 import com.zwx.codepulse.model.entity.App;
 import com.zwx.codepulse.model.entity.User;
 import com.zwx.codepulse.model.vo.*;
+import com.zwx.codepulse.ratelimter.annotation.RateLimit;
+import com.zwx.codepulse.ratelimter.enums.RateLimitType;
 import com.zwx.codepulse.service.AppService;
 import com.zwx.codepulse.service.ProjectDownloadService;
 import com.zwx.codepulse.service.UserService;
@@ -61,6 +63,7 @@ public class AppController {
      */
     @Operation(summary = "应用聊天生成代码")
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @RateLimit(limitType = RateLimitType.USER, rate = 5, rateInterval = 60, message = "AI 对话请求过于频繁，请稍后再试")
     public Flux<ServerSentEvent<String>> chatToGenCode(
             @Parameter(description = "应用 ID", required = true)
             @RequestParam("appId") Long appId,
