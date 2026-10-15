@@ -59,7 +59,7 @@
               <div class="message-avatar">
                 <a-avatar :src="aiAvatar" />
               </div>
-              <div class="message-content">
+              <div class="message-content" :class="{ 'message-content-error': message.error }">
                 <MarkdownRenderer v-if="message.content" :content="message.content" />
                 <div v-if="message.loading" class="loading-indicator">
                   <a-spin size="small" />
@@ -222,7 +222,7 @@ import {
 import { listAppChatHistory } from '@/api/chatHistoryController'
 import { CodeGenTypeEnum, formatCodeGenType } from '@/utils/codeGenTypes'
 import request from '@/request'
-import { fetchSse } from '@/utils/sse'
+import { fetchSse, SseError } from '@/utils/sse'
 
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import AppDetailModal from '@/components/AppDetailModal.vue'
@@ -253,6 +253,8 @@ interface Message {
   content: string
   loading?: boolean
   createTime?: string
+  /** 该条消息以异常结束，用于气泡样式区分 */
+  error?: boolean
 }
 
 const messages = ref<Message[]>([])
@@ -484,6 +486,8 @@ const generateCode = async (userMessage: string, aiMessageIndex: number) => {
   })
   const url = `${baseURL}/app/chat/gen/code?${params}`
   const token = localStorage.getItem('token')
+  // 用于业务异常后主动关闭流（等价于 EventSource 的 close()）
+  const abortController = new AbortController()
 
   let fullContent = ''
   let streamCompleted = false
@@ -491,16 +495,34 @@ const generateCode = async (userMessage: string, aiMessageIndex: number) => {
   await fetchSse({
     url,
     token,
+    signal: abortController.signal,
     // 处理接收到的消息
     onMessage: (data, event) => {
       if (streamCompleted) return
+      // 处理 business-error 事件（后端限流等业务错误）
+      if (event === 'business-error') {
+        streamCompleted = true
+        try {
+          const errorData = JSON.parse(data)
+          console.error('SSE业务错误事件:', errorData)
+          // 显示后端返回的具体错误信息
+          handleBusinessError(errorData.message, aiMessageIndex)
+        } catch (parseError) {
+          console.error('解析错误事件失败:', parseError, '原始数据:', data)
+          handleError(new Error('服务器返回错误'), aiMessageIndex)
+        }
+        // 关闭流，不再读取后续的 done 事件
+        abortController.abort()
+        return
+      }
       try {
         // 解析JSON包装的数据
         const parsed = JSON.parse(data)
-        // 后端统一封装的业务错误事件（未登录/无权限等）
-        if (event === 'business-error' || parsed.error) {
+        // 后端统一封装的业务错误数据（未登录/无权限等）
+        if (parsed && parsed.error) {
           streamCompleted = true
-          handleError(new Error(parsed.message || '生成失败'), aiMessageIndex)
+          handleBusinessError(parsed.message, aiMessageIndex)
+          abortController.abort()
           return
         }
         const content = parsed.d
@@ -531,18 +553,44 @@ const generateCode = async (userMessage: string, aiMessageIndex: number) => {
     onError: (error) => {
       if (streamCompleted) return
       streamCompleted = true
-      handleError(error, aiMessageIndex)
+      handleConnectionError(error, aiMessageIndex)
     },
   })
 }
 
-// 错误处理函数
+// 把异常信息写入对话气泡：已有内容时追加，避免丢失已生成的内容
+const setErrorMessage = (aiMessageIndex: number, text: string) => {
+  const target = messages.value[aiMessageIndex]
+  if (target) {
+    target.content = target.content ? `${target.content}\n\n${text}` : text
+    target.error = true
+    target.loading = false
+  }
+  isGenerating.value = false
+  nextTick(scrollToBottom)
+}
+
+// 业务异常：后端返回的错误信息（限流、未登录、无权限等）
+const handleBusinessError = (errorMessage: string | undefined, aiMessageIndex: number) => {
+  const text = errorMessage || '生成过程中出现错误'
+  console.error('生成代码失败（业务异常）：', text)
+  setErrorMessage(aiMessageIndex, `❌ ${text}`)
+  message.error(text)
+}
+
+// 连接异常：网络中断、HTTP 错误或流提前中断
+const handleConnectionError = (error: unknown, aiMessageIndex: number) => {
+  const text = error instanceof SseError ? error.message : '连接异常，请检查网络后重试'
+  console.error('生成代码失败（连接异常）：', error)
+  setErrorMessage(aiMessageIndex, `❌ ${text}`)
+  message.error(text)
+}
+
+// 兜底错误处理
 const handleError = (error: unknown, aiMessageIndex: number) => {
   console.error('生成代码失败：', error)
-  messages.value[aiMessageIndex].content = '抱歉，生成过程中出现了错误，请重试。'
-  messages.value[aiMessageIndex].loading = false
+  setErrorMessage(aiMessageIndex, '❌ 生成过程中出现错误，请重试')
   message.error('生成失败，请重试')
-  isGenerating.value = false
 }
 
 // 更新预览
@@ -824,6 +872,12 @@ onUnmounted(() => {
   background: #f5f5f5;
   color: #1a1a1a;
   padding: 8px 12px;
+}
+
+/* 异常信息气泡（业务异常 / 连接异常） */
+.ai-message .message-content-error {
+  background: #fff2f0;
+  border: 1px solid #ffccc7;
 }
 
 .message-avatar {
