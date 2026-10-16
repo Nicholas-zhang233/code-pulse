@@ -11,7 +11,7 @@
  Target Server Version : 80034 (8.0.34)
  File Encoding         : 65001
 
- Date: 15/09/2026 16:27:57
+ Date: 16/10/2026 20:24:17
 */
 
 SET NAMES utf8mb4;
@@ -39,7 +39,26 @@ CREATE TABLE `app`  (
   UNIQUE INDEX `uk_deployKey`(`deployKey` ASC) USING BTREE,
   INDEX `idx_appName`(`appName` ASC) USING BTREE,
   INDEX `idx_userId`(`userId` ASC) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '应用' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 2111063205783482370 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '应用' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Table structure for chat_history
+-- ----------------------------
+DROP TABLE IF EXISTS `chat_history`;
+CREATE TABLE `chat_history`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'id',
+  `message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '消息',
+  `messageType` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'user/ai',
+  `appId` bigint NOT NULL COMMENT '应用id',
+  `userId` bigint NOT NULL COMMENT '创建用户id',
+  `createTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updateTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `isDelete` tinyint NOT NULL DEFAULT 0 COMMENT '是否删除',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_appId`(`appId` ASC) USING BTREE,
+  INDEX `idx_createTime`(`createTime` ASC) USING BTREE,
+  INDEX `idx_appId_createTime`(`appId` ASC, `createTime` ASC) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 2111070109175853059 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '对话历史' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for user
