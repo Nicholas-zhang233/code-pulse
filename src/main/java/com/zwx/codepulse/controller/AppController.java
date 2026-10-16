@@ -17,6 +17,7 @@ import com.zwx.codepulse.model.dto.AppAddRequest;
 import com.zwx.codepulse.model.dto.AppUpdateRequest;
 import com.zwx.codepulse.model.entity.App;
 import com.zwx.codepulse.model.entity.User;
+import com.zwx.codepulse.model.enums.GenModeEnum;
 import com.zwx.codepulse.model.vo.*;
 import com.zwx.codepulse.ratelimter.annotation.RateLimit;
 import com.zwx.codepulse.ratelimter.enums.RateLimitType;
@@ -56,6 +57,10 @@ public class AppController {
 
     /**
      * 应用聊天生成代码（流式 SSE）
+     * <p>
+     * 根据应用自身选择的生成模式分流：
+     * - 一般模式（normal，默认）：走传统流式生成链路
+     * - 专家模式（expert）：走 LangGraph4j 工作流，额外推送 step 事件表示阶段进度
      *
      * @param appId   应用 ID
      * @param message 用户消息
@@ -72,11 +77,22 @@ public class AppController {
         // 参数校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
         ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
-        LoginUserVO loginUser = userService.getLoginUserVO(StpUtil.getLoginIdAsLong());
+        long loginUserId = StpUtil.getLoginIdAsLong();
+        LoginUserVO loginUser = userService.getLoginUserVO(loginUserId);
         ThrowUtils.throwIf(loginUser == null, ErrorCode.NOT_LOGIN_ERROR);
-        // 调用服务生成代码（流式）
+        // 解析应用自身的生成模式（内部完成应用存在性与归属校验）
+        GenModeEnum genModeEnum = appService.resolveGenMode(appId, loginUserId);
+        if (genModeEnum == GenModeEnum.EXPERT) {
+            // 专家模式：LangGraph4j 工作流，step 事件表示阶段进度，message 事件表示代码正文
+            return appService.chatToGenCodeByExpert(appId, message, loginUser)
+                    .map(workflowEvent -> ServerSentEvent.<String>builder()
+                            .event(workflowEvent.event())
+                            .data(JSONUtil.toJsonStr(workflowEvent.data()))
+                            .build())
+                    .concatWith(doneEvent());
+        }
+        // 一般模式：调用服务生成代码（流式），保持原有报文格式不变
         Flux<String> contentFlux = appService.chatToGenCode(appId, message, loginUser);
-        // 转换为 ServerSentEvent 格式
         return contentFlux
                 .map(chunk -> {
                     // 将内容包装成JSON对象
@@ -86,13 +102,17 @@ public class AppController {
                             .data(jsonData)
                             .build();
                 })
-                .concatWith(Mono.just(
-                        // 发送结束事件
-                        ServerSentEvent.<String>builder()
-                                .event("done")
-                                .data("")
-                                .build()
-                ));
+                .concatWith(doneEvent());
+    }
+
+    /**
+     * 发送结束事件
+     */
+    private Mono<ServerSentEvent<String>> doneEvent() {
+        return Mono.just(ServerSentEvent.<String>builder()
+                .event("done")
+                .data("")
+                .build());
     }
     /**
      * 应用部署

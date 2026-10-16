@@ -18,5 +18,10 @@ public class AppAddRequest implements Serializable {
     @NotBlank
     private String initPrompt;
 
+    /**
+     * 生成模式（normal：一般模式，expert：专家模式），为空时按一般模式处理
+     */
+    private String genMode;
+
     private static final long serialVersionUID = 1L;
 } 

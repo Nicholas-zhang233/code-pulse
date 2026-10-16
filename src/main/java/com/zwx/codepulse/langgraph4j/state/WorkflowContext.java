@@ -29,6 +29,13 @@ public class WorkflowContext implements Serializable {
     public static final String WORKFLOW_CONTEXT_KEY = "workflowContext";
 
     /**
+     * 代码质检失败后允许重新生成的最大次数
+     * <p>
+     * 每次都意味着一次完整的 AI 代码生成，必须有上限，否则质检持续不通过会长时间死循环
+     */
+    public static final int MAX_RETRY_COUNT = 2;
+
+    /**
      * 当前执行步骤
      */
     private String currentStep;
@@ -77,6 +84,16 @@ public class WorkflowContext implements Serializable {
      * 质量检查结果
      */
     private QualityResult qualityResult;
+
+    /**
+     * 代码质检失败后的重新生成次数
+     */
+    private int retryCount;
+
+    /**
+     * 代码生成节点输出的完整代码内容（用于向前端透出生成结果，不做持久化）
+     */
+    private transient String generatedCodeOutput;
 
     /**
      * 应用 ID

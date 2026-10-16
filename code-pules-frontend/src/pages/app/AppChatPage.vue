@@ -7,6 +7,9 @@
         <a-tag v-if="appInfo?.codeGenType" color="blue" class="code-gen-type-tag">
           {{ formatCodeGenType(appInfo.codeGenType) }}
         </a-tag>
+        <a-tag v-if="isExpertMode" color="purple" class="code-gen-type-tag">
+          {{ formatGenMode(appInfo?.genMode) }}
+        </a-tag>
       </div>
       <div class="header-right">
         <a-button type="default" @click="showAppDetail">
@@ -60,10 +63,16 @@
                 <a-avatar :src="aiAvatar" />
               </div>
               <div class="message-content" :class="{ 'message-content-error': message.error }">
+                <ul v-if="message.steps && message.steps.length" class="step-list">
+                  <li v-for="step in message.steps" :key="step.stepNumber" class="step-item">
+                    <span class="step-icon">{{ step.status === 'completed' ? '✓' : '•' }}</span>
+                    <span class="step-name">{{ step.currentStep }}</span>
+                  </li>
+                </ul>
                 <MarkdownRenderer v-if="message.content" :content="message.content" />
                 <div v-if="message.loading" class="loading-indicator">
                   <a-spin size="small" />
-                  <span>AI 正在思考...</span>
+                  <span>{{ isExpertMode ? '专家模式正在执行工作流...' : 'AI 正在思考...' }}</span>
                 </div>
               </div>
             </div>
@@ -220,7 +229,7 @@ import {
   deleteApp as deleteAppApi,
 } from '@/api/appController'
 import { listAppChatHistory } from '@/api/chatHistoryController'
-import { CodeGenTypeEnum, formatCodeGenType } from '@/utils/codeGenTypes'
+import { CodeGenTypeEnum, formatCodeGenType, formatGenMode, isExpertGenMode } from '@/utils/codeGenTypes'
 import request from '@/request'
 import { fetchSse, SseError } from '@/utils/sse'
 
@@ -255,12 +264,24 @@ interface Message {
   createTime?: string
   /** 该条消息以异常结束，用于气泡样式区分 */
   error?: boolean
+  /** 专家模式的工作流阶段进度 */
+  steps?: WorkflowStep[]
 }
 
 const messages = ref<Message[]>([])
 const userInput = ref('')
 const isGenerating = ref(false)
 const messagesContainer = ref<HTMLElement>()
+
+/**
+ * 专家模式工作流阶段进度
+ */
+interface WorkflowStep {
+  stepNumber: number
+  currentStep: string
+  status?: string
+  message?: string
+}
 
 // 对话历史相关
 const loadingHistory = ref(false)
@@ -297,6 +318,9 @@ const isOwner = computed(() => {
 const isAdmin = computed(() => {
   return loginUserStore.loginUser.userRole === 'admin'
 })
+
+// 是否为专家模式应用（按应用自身保存的生成模式判断）
+const isExpertMode = computed(() => isExpertGenMode(appInfo.value?.genMode))
 
 // 应用详情相关
 const appDetailVisible = ref(false)
@@ -513,6 +537,23 @@ const generateCode = async (userMessage: string, aiMessageIndex: number) => {
         }
         // 关闭流，不再读取后续的 done 事件
         abortController.abort()
+        return
+      }
+      // 专家模式：工作流阶段进度事件，用于在气泡内展示执行步骤
+      if (event === 'step') {
+        try {
+          const stepData = JSON.parse(data) as WorkflowStep
+          const target = messages.value[aiMessageIndex]
+          if (target && stepData) {
+            if (!target.steps) {
+              target.steps = []
+            }
+            target.steps.push(stepData)
+            scrollToBottom()
+          }
+        } catch (parseError) {
+          console.error('解析工作流步骤事件失败:', parseError, '原始数据:', data)
+        }
         return
       }
       try {
@@ -796,6 +837,38 @@ onUnmounted(() => {
 
 .code-gen-type-tag {
   font-size: 12px;
+}
+
+/* 专家模式工作流步骤进度 */
+.step-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(139, 92, 246, 0.08);
+  font-size: 13px;
+}
+
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  color: #475569;
+}
+
+.step-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 12px;
+  color: #722ed1;
+}
+
+.step-name {
+  line-height: 1.4;
 }
 
 .app-name {

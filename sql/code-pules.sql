@@ -27,6 +27,7 @@ CREATE TABLE `app`  (
   `cover` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '应用封面',
   `initPrompt` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '应用初始化的 prompt',
   `codeGenType` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '代码生成类型（枚举）',
+  `genMode` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'normal' COMMENT '生成模式（normal：一般模式，expert：专家模式）',
   `deployKey` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '部署标识',
   `deployedTime` datetime NULL DEFAULT NULL COMMENT '部署时间',
   `priority` int NOT NULL DEFAULT 0 COMMENT '优先级',
@@ -82,3 +83,11 @@ CREATE TABLE `user`  (
 ) ENGINE = InnoDB AUTO_INCREMENT = 2099469854986641411 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '用户' ROW_FORMAT = Dynamic;
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- ----------------------------
+-- 增量迁移：已有库升级到「一般模式 / 专家模式」所需的最小变更
+-- 新库直接执行上面的 CREATE TABLE 即可，无需执行下面的语句
+-- ----------------------------
+-- ALTER TABLE `app`
+--   ADD COLUMN `genMode` varchar(32) NOT NULL DEFAULT 'normal' COMMENT '生成模式（normal：一般模式，expert：专家模式）' AFTER `codeGenType`;
+

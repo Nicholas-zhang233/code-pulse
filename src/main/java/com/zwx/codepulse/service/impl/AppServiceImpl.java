@@ -18,6 +18,9 @@ import com.zwx.codepulse.constant.AppConstant;
 import com.zwx.codepulse.exception.BusinessException;
 import com.zwx.codepulse.exception.ErrorCode;
 import com.zwx.codepulse.exception.ThrowUtils;
+import com.zwx.codepulse.langgraph4j.CodeGenWorkflow;
+import com.zwx.codepulse.langgraph4j.model.WorkflowEvent;
+import com.zwx.codepulse.langgraph4j.state.WorkflowContext;
 import com.zwx.codepulse.mapper.AppMapper;
 import com.zwx.codepulse.model.dto.AppAddRequest;
 import com.zwx.codepulse.model.dto.AppUpdateRequest;
@@ -25,6 +28,7 @@ import com.zwx.codepulse.model.entity.App;
 import com.zwx.codepulse.model.entity.User;
 import com.zwx.codepulse.model.enums.ChatHistoryMessageTypeEnum;
 import com.zwx.codepulse.model.enums.CodeGenTypeEnum;
+import com.zwx.codepulse.model.enums.GenModeEnum;
 import com.zwx.codepulse.model.vo.*;
 import com.zwx.codepulse.service.AppService;
 import com.zwx.codepulse.service.ChatHistoryService;
@@ -54,6 +58,18 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppService {
+
+    /**
+     * 专家模式写入对话历史的代码内容长度上限
+     * <p>
+     * 超过该长度时只写入流程摘要，避免对话历史表被整份代码撑爆
+     */
+    private static final int EXPERT_HISTORY_MAX_LENGTH = 8000;
+
+    /**
+     * 专家模式工作流（无状态，与 WorkflowSseController 保持一致的直接实例化方式）
+     */
+    private final CodeGenWorkflow codeGenWorkflow = new CodeGenWorkflow();
 
 
     @Resource
@@ -95,6 +111,75 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         // 7. 收集 AI 响应内容并在完成后记录到对话历史
         return streamHandlerExecutor.doExecute(codeStream, chatHistoryService, appId, loginUser, codeGenTypeEnum);
 
+    }
+
+    @Override
+    public Flux<WorkflowEvent> chatToGenCodeByExpert(Long appId, String message, LoginUserVO loginUser) {
+        // 1. 参数校验
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+        ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
+        // 2. 查询应用信息
+        App app = this.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        // 3. 验证用户是否有权限访问该应用，仅本人可以生成代码
+        ThrowUtils.throwIf(!app.getUserId().equals(loginUser.getId()), ErrorCode.NO_AUTH_ERROR, "无权限访问该应用");
+        // 4. 添加用户消息到对话历史
+        chatHistoryService.addChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
+        // 5. 执行 LangGraph4j 工作流，输出结构化事件流
+        return codeGenWorkflow.expertWorkflowStream(message, appId,
+                        finalContext -> saveExpertResult(appId, loginUser.getId(), finalContext))
+                .doOnError(error -> {
+                    // 工作流失败时记录错误信息，与一般模式的错误观感保持一致
+                    log.error("专家模式代码生成失败，appId: {}, 原因: {}", appId, error.getMessage());
+                    chatHistoryService.addChatMessage(appId, "AI回复失败: " + error.getMessage(),
+                            ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+                });
+    }
+
+    /**
+     * 工作流执行完成后的收尾：回写真实选中的代码生成类型，并记录 AI 对话历史
+     *
+     * @param appId        应用 ID
+     * @param userId       登录用户 ID
+     * @param finalContext 工作流最终上下文
+     */
+    private void saveExpertResult(Long appId, Long userId, WorkflowContext finalContext) {
+        CodeGenTypeEnum generationType = finalContext.getGenerationType();
+        // 1. 回写 RouterNode 实际选中的代码生成类型，保证前端预览路径与真实生成目录一致
+        if (generationType != null) {
+            String selectedType = generationType.getValue();
+            App oldApp = this.getById(appId);
+            if (oldApp != null && !selectedType.equals(oldApp.getCodeGenType())) {
+                App updateApp = App.builder()
+                        .id(appId)
+                        .codeGenType(selectedType)
+                        .build();
+                boolean updated = this.updateById(updateApp);
+                log.info("专家模式回写代码生成类型，appId: {}, codeGenType: {}, 结果: {}", appId, selectedType, updated);
+            }
+        }
+        // 2. 记录 AI 对话历史：内容过长时只记录流程摘要，避免对话历史表被代码撑爆
+        String codeOutput = finalContext.getGeneratedCodeOutput();
+        String historyMessage;
+        if (StrUtil.isBlank(codeOutput)) {
+            historyMessage = "专家模式已执行完成，但未产出代码内容，请重试。";
+        } else if (codeOutput.length() > EXPERT_HISTORY_MAX_LENGTH) {
+            historyMessage = String.format("专家模式生成完成：图片收集 → 提示词增强 → 智能路由 → 代码生成 → 质检 → 构建（代码生成类型：%s），完整代码请在预览或下载中查看。",
+                    generationType == null ? "未知" : generationType.getValue());
+        } else {
+            historyMessage = codeOutput;
+        }
+        chatHistoryService.addChatMessage(appId, historyMessage, ChatHistoryMessageTypeEnum.AI.getValue(), userId);
+    }
+
+    @Override
+    public GenModeEnum resolveGenMode(Long appId, Long userId) {
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+        App app = this.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        ThrowUtils.throwIf(!app.getUserId().equals(userId), ErrorCode.NO_AUTH_ERROR, "无权限访问该应用");
+        // 历史数据（genMode 为 NULL）与非法值统一按一般模式处理
+        return GenModeEnum.of(app.getGenMode());
     }
 
     @Override
@@ -191,6 +276,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         app.setUserId(userId);
         // 应用名称暂时为 initPrompt 前 12 位
         app.setAppName(initPrompt.substring(0, Math.min(initPrompt.length(), 12)));
+        // 生成模式：前端未传或传了非法值时按一般模式处理
+        GenModeEnum genModeEnum = GenModeEnum.of(appAddRequest.getGenMode());
+        app.setGenMode(genModeEnum.getValue());
         // 使用 AI 智能选择代码生成类型
         // 使用 AI 智能选择代码生成类型（多例模式）
         AiCodeGenTypeRoutingService aiCodeGenTypeRoutingService = aiCodeGenTypeRoutingServiceFactory.createAiCodeGenTypeRoutingService();
@@ -199,7 +287,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         // 插入数据库
         boolean result = this.save(app);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
-        log.info("应用创建成功，ID: {}, 类型: {}", app.getId(), selectedCodeGenType.getValue());
+        log.info("应用创建成功，ID: {}, 类型: {}, 模式: {}", app.getId(), selectedCodeGenType.getValue(), genModeEnum.getValue());
         return app.getId();
     }
 
@@ -298,6 +386,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         String cover = appQueryRequest.getCover();
         String initPrompt = appQueryRequest.getInitPrompt();
         String codeGenType = appQueryRequest.getCodeGenType();
+        String genMode = appQueryRequest.getGenMode();
         String deployKey = appQueryRequest.getDeployKey();
         Integer priority = appQueryRequest.getPriority();
         Long userId = appQueryRequest.getUserId();
@@ -309,6 +398,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
                 .like(cover != null, "cover", cover)
                 .like(initPrompt != null, "initPrompt", initPrompt)
                 .eq(codeGenType != null, "codeGenType", codeGenType)
+                .eq(genMode != null, "genMode", genMode)
                 .eq(deployKey != null, "deployKey", deployKey)
                 .eq(priority != null, "priority", priority)
                 .eq(userId != null, "userId", userId)

@@ -1,6 +1,8 @@
 declare namespace API {
   type AppAddRequest = {
     initPrompt: string
+    /** 生成模式：normal（一般模式，默认）/ expert（专家模式） */
+    genMode?: string
   }
 
   type AppAdminUpdateRequest = {
@@ -24,6 +26,8 @@ declare namespace API {
     cover?: string
     initPrompt?: string
     codeGenType?: string
+    /** 生成模式：normal / expert */
+    genMode?: string
     deployKey?: string
     priority?: number
     userId?: number
@@ -40,6 +44,8 @@ declare namespace API {
     cover?: string
     initPrompt?: string
     codeGenType?: string
+    /** 生成模式：normal / expert */
+    genMode?: string
     deployKey?: string
     deployedTime?: string
     priority?: number

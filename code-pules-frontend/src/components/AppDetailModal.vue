@@ -12,6 +12,12 @@
           <span>{{ formatTime(app?.createTime) }}</span>
         </div>
         <div class="info-item">
+          <span class="info-label">生成模式：</span>
+          <a-tag :color="isExpertGenMode(app?.genMode) ? 'purple' : 'default'">
+            {{ formatGenMode(app?.genMode) }}
+          </a-tag>
+        </div>
+        <div class="info-item">
           <span class="info-label">生成类型：</span>
           <a-tag v-if="app?.codeGenType" color="blue">
             {{ formatCodeGenType(app.codeGenType) }}
@@ -53,7 +59,7 @@ import { computed } from 'vue'
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons-vue'
 import UserInfo from '@/components/UserInfo.vue'
 import { formatTime } from '@/utils/times.ts'
-import { formatCodeGenType } from '../utils/codeGenTypes.ts'
+import { formatCodeGenType, formatGenMode, isExpertGenMode } from '../utils/codeGenTypes.ts'
 
 interface Props {
   open: boolean

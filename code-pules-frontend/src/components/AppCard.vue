@@ -24,11 +24,14 @@
           {{ app.user?.userName || (featured ? '官方' : '未知用户') }}
         </p>
       </div>
+      <a-tag v-if="isExpertGenMode(app.genMode)" color="purple" class="app-mode-tag">专家</a-tag>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { isExpertGenMode } from '@/utils/codeGenTypes'
+
 interface Props {
   app: API.AppVO
   featured?: boolean
@@ -126,6 +129,12 @@ const handleViewWork = () => {
 .app-info-right {
   flex: 1;
   min-width: 0;
+}
+
+/* 专家模式标识 */
+.app-mode-tag {
+  flex-shrink: 0;
+  margin-inline-end: 0;
 }
 
 .app-title {

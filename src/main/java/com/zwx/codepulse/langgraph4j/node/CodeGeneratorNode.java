@@ -26,6 +26,12 @@ public class CodeGeneratorNode {
             // 构造用户消息（包含原始提示词和可能的错误修复信息）
             String userMessage = buildUserMessage(context);
             CodeGenTypeEnum generationType = context.getGenerationType();
+            // 质检失败后的重新生成：累计重试次数，由工作流的条件边决定是否还有重试额度
+            if (isQualityCheckFailed(context.getQualityResult())) {
+                int retryCount = context.getRetryCount() + 1;
+                context.setRetryCount(retryCount);
+                log.warn("代码质检失败，开始第 {} 次重新生成（上限 {} 次）", retryCount, WorkflowContext.MAX_RETRY_COUNT);
+            }
             // 获取 AI 代码生成外观服务
             AiCodeGeneratorFacade codeGeneratorFacade = SpringContextUtil.getBean(AiCodeGeneratorFacade.class);
             log.info("开始生成代码，类型: {} ({})", generationType.getValue(), generationType.getText());
@@ -33,8 +39,10 @@ public class CodeGeneratorNode {
             Long appId = context.getAppId();
             // 调用流式代码生成
             Flux<String> codeStream = codeGeneratorFacade.generateAndSaveCodeStream(userMessage, generationType, appId);
-            // 同步等待流式输出完成
-            codeStream.blockLast(Duration.ofMinutes(10)); // 最多等待 10 分钟
+            // 同步等待流式输出完成，同时累积代码正文用于向前端透出
+            StringBuilder codeOutputBuilder = new StringBuilder();
+            codeStream.doOnNext(codeOutputBuilder::append)
+                    .blockLast(Duration.ofMinutes(10)); // 最多等待 10 分钟
             // 根据类型设置生成目录
             String generatedCodeDir = String.format("%s/%s_%s", AppConstant.CODE_OUTPUT_ROOT_DIR, generationType.getValue(), appId);
             log.info("AI 代码生成完成，生成目录: {}", generatedCodeDir);
@@ -42,6 +50,7 @@ public class CodeGeneratorNode {
             // 更新状态
             context.setCurrentStep("代码生成");
             context.setGeneratedCodeDir(generatedCodeDir);
+            context.setGeneratedCodeOutput(codeOutputBuilder.toString());
             return WorkflowContext.saveContext(context);
         });
     }

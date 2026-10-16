@@ -1,9 +1,11 @@
 package com.zwx.codepulse.langgraph4j;
 
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.zwx.codepulse.exception.BusinessException;
 import com.zwx.codepulse.exception.ErrorCode;
 import com.zwx.codepulse.langgraph4j.model.QualityResult;
+import com.zwx.codepulse.langgraph4j.model.WorkflowEvent;
 import com.zwx.codepulse.langgraph4j.node.*;
 import com.zwx.codepulse.langgraph4j.state.WorkflowContext;
 import com.zwx.codepulse.model.enums.CodeGenTypeEnum;
@@ -21,6 +23,8 @@ import reactor.core.publisher.Flux;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static org.bsc.langgraph4j.StateGraph.END;
 import static org.bsc.langgraph4j.StateGraph.START;
@@ -67,13 +71,34 @@ public class CodeGenWorkflow {
     }
 
     /**
-     * 执行工作流（Flux 流式输出版本）
+     * 执行工作流（Flux 流式输出版本，输出结构化事件）
+     * <p>
+     * 事件类型：
+     * - step：阶段进度，data 为 {stepNumber, currentStep, status}
+     * - message：文本内容，data 为字符串（当前为代码生成节点产出的完整代码正文）
      */
-    public Flux<String> executeWorkflowWithFlux(String originalPrompt,Long appId) {
+    public Flux<WorkflowEvent> expertWorkflowStream(String originalPrompt, Long appId) {
+        return expertWorkflowStream(originalPrompt, appId, null);
+    }
+
+    /**
+     * 执行工作流（Flux 流式输出版本），并在工作流结束后回调最终上下文
+     * <p>
+     * 各节点共享同一个 WorkflowContext 实例，因此可以在流结束后安全读取最终状态，
+     * 用于把 RouterNode 实际选中的代码生成类型回写到应用上
+     *
+     * @param originalPrompt 用户原始提示词
+     * @param appId          应用 ID
+     * @param onComplete     工作流全部节点执行成功后的回调，允许为 null
+     */
+    public Flux<WorkflowEvent> expertWorkflowStream(String originalPrompt, Long appId,
+                                                    Consumer<WorkflowContext> onComplete) {
         return Flux.create(sink -> {
             // 使用专用线程池(workflowAsyncExecutor)执行工作流,避免每次调用新建线程,
             Executor executor = SpringContextUtil.getBean("workflowAsyncExecutor", Executor.class);
             executor.execute(() -> {
+                // 工作流各节点共享同一个 WorkflowContext 实例，这里持有最终状态用于结束后回调
+                AtomicReference<WorkflowContext> finalContextRef = new AtomicReference<>();
                 try {
                     CompiledGraph<MessagesState<String>> workflow = createWorkflow();
                     WorkflowContext initialContext = WorkflowContext.builder()
@@ -81,9 +106,11 @@ public class CodeGenWorkflow {
                             .originalPrompt(originalPrompt)
                             .currentStep("初始化")
                             .build();
-                    sink.next(formatSseEvent("workflow_start", Map.of(
-                            "message", "开始执行代码生成工作流",
-                            "originalPrompt", originalPrompt
+                    finalContextRef.set(initialContext);
+                    sink.next(WorkflowEvent.step(Map.of(
+                            "stepNumber", 0,
+                            "currentStep", "初始化",
+                            "status", "completed"
                     )));
                     GraphRepresentation graph = workflow.getGraph(GraphRepresentation.Type.MERMAID);
                     log.info("工作流图:\n{}", graph.content());
@@ -94,29 +121,51 @@ public class CodeGenWorkflow {
                         log.info("--- 第 {} 步完成 ---", stepCounter);
                         WorkflowContext currentContext = WorkflowContext.getContext(step.state());
                         if (currentContext != null) {
-                            sink.next(formatSseEvent("step_completed", Map.of(
+                            finalContextRef.set(currentContext);
+                            sink.next(WorkflowEvent.step(Map.of(
                                     "stepNumber", stepCounter,
-                                    "currentStep", currentContext.getCurrentStep()
+                                    "currentStep", StrUtil.blankToDefault(currentContext.getCurrentStep(), "处理中"),
+                                    "status", "completed"
                             )));
                             log.info("当前步骤上下文: {}", currentContext);
                         }
                         stepCounter++;
                     }
-                    sink.next(formatSseEvent("workflow_completed", Map.of(
-                            "message", "代码生成工作流执行完成！"
-                    )));
+                    // 工作流全部节点执行完成后，把代码正文作为文本内容推给前端
+                    WorkflowContext finalContext = finalContextRef.get();
+                    if (finalContext != null && StrUtil.isNotBlank(finalContext.getGeneratedCodeOutput())) {
+                        sink.next(WorkflowEvent.message(finalContext.getGeneratedCodeOutput()));
+                    }
                     log.info("代码生成工作流执行完成！");
+                    // 回调放在 complete 之前，保证前端收到 done 事件时生成类型已经落库
+                    if (onComplete != null && finalContext != null) {
+                        try {
+                            onComplete.accept(finalContext);
+                        } catch (Exception callbackError) {
+                            log.error("工作流完成回调执行失败: {}", callbackError.getMessage(), callbackError);
+                        }
+                    }
                     sink.complete();
                 } catch (Exception e) {
+                    // 错误信号统一交给下游的异常处理器转成 business-error 事件，
+                    // 这里不再额外 sink.next：FluxCreate 的 sink 在 error 之后会忽略后续信号
                     log.error("工作流执行失败: {}", e.getMessage(), e);
-                    sink.next(formatSseEvent("workflow_error", Map.of(
-                            "error", e.getMessage(),
-                            "message", "工作流执行失败"
-                    )));
                     sink.error(e);
                 }
             });
         });
+    }
+
+    /**
+     * 执行工作流（Flux 流式输出版本，输出旧版 SSE 文本帧）
+     *
+     * @deprecated 业务链路请使用 {@link #expertWorkflowStream(String, Long)}，本方法仅供调试端点使用
+     */
+    @Deprecated
+    public Flux<String> executeWorkflowWithFlux(String originalPrompt, Long appId) {
+        return expertWorkflowStream(originalPrompt, appId)
+                .map(event -> formatSseEvent(event.event(),
+                        event.event().equals(WorkflowEvent.EVENT_STEP) ? event.data() : Map.of("d", event.data())));
     }
 
     /**
@@ -243,7 +292,15 @@ public class CodeGenWorkflow {
         QualityResult qualityResult = context.getQualityResult();
         // 如果质检失败，重新生成代码
         if (qualityResult == null || !qualityResult.getIsValid()) {
-            log.error("代码质检失败，需要重新生成代码");
+            // 重试次数到达上限后不再重新生成，避免 AI 代码生成 + 质检长时间死循环
+            if (context.getRetryCount() >= WorkflowContext.MAX_RETRY_COUNT) {
+                log.error("代码质检连续 {} 次未通过，结束工作流并保留已生成的代码",
+                        context.getRetryCount());
+                context.setErrorMessage("代码质检连续未通过，已保留最后一次生成的代码");
+                context.setCurrentStep("质检未通过");
+                return "skip_build";
+            }
+            log.error("代码质检失败，需要重新生成代码（当前重试次数 {}）", context.getRetryCount());
             return "fail";
         }
         // 质检通过，使用原有的构建路由逻辑

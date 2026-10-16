@@ -1,10 +1,16 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { addApp, listMyAppVoByPage, listGoodAppVoByPage } from '@/api/appController'
 import { getDeployUrl } from '@/config/env'
+import {
+  DEFAULT_GEN_MODE,
+  GEN_MODE_OPTIONS,
+  getGenModeDescription,
+  type GenModeEnum,
+} from '@/utils/codeGenTypes'
 import AppCard from '@/components/AppCard.vue'
 
 const router = useRouter()
@@ -13,6 +19,10 @@ const loginUserStore = useLoginUserStore()
 // 用户提示词
 const userPrompt = ref('')
 const creating = ref(false)
+// 生成模式，默认一般模式
+const genMode = ref<GenModeEnum>(DEFAULT_GEN_MODE)
+// 当前所选模式的说明文案
+const genModeDescription = computed(() => getGenModeDescription(genMode.value))
 
 // 我的应用数据
 const myApps = ref<API.AppVO[]>([])
@@ -54,6 +64,7 @@ const createApp = async () => {
   try {
     const res = await addApp({
       initPrompt: userPrompt.value.trim(),
+      genMode: genMode.value,
     })
 
     if (res.data.code === 0 && res.data.data) {
@@ -181,6 +192,12 @@ onMounted(() => {
             </template>
           </a-button>
         </div>
+      </div>
+
+      <!-- 生成模式选择 -->
+      <div class="mode-switch">
+        <a-segmented v-model:value="genMode" :options="GEN_MODE_OPTIONS" block />
+        <p class="mode-tip">{{ genModeDescription }}</p>
       </div>
 
       <!-- 快捷按钮 -->
@@ -472,6 +489,27 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+/* 生成模式选择 */
+.mode-switch {
+  max-width: 800px;
+  margin: 0 auto 32px;
+}
+
+.mode-switch .ant-segmented {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(15px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+  padding: 4px;
+}
+
+.mode-tip {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #64748b;
 }
 
 /* 快捷按钮 */
