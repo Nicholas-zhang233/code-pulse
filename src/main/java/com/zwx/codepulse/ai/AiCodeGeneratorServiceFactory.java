@@ -6,6 +6,7 @@ import com.zwx.codepulse.ai.tools.FileWriteTool;
 import com.zwx.codepulse.ai.tools.ToolManager;
 import com.zwx.codepulse.exception.BusinessException;
 import com.zwx.codepulse.exception.ErrorCode;
+import com.zwx.codepulse.guardrail.PromptSafetyInputGuardrail;
 import com.zwx.codepulse.model.enums.CodeGenTypeEnum;
 import com.zwx.codepulse.service.ChatHistoryService;
 import com.zwx.codepulse.utils.SpringContextUtil;
@@ -118,6 +119,7 @@ public class AiCodeGeneratorServiceFactory {
                                 ToolExecutionResultMessage.from(toolExecutionRequest,
                                         "Error: there is no tool called " + toolExecutionRequest.name())
                         )
+                        .inputGuardrails(new PromptSafetyInputGuardrail())
                         .build();
             }
             // HTML 和多文件生成使用默认模型
@@ -128,6 +130,7 @@ public class AiCodeGeneratorServiceFactory {
                         .chatModel(chatModel)
                         .streamingChatModel(openAiStreamingChatModel)
                         .chatMemory(chatMemory)
+                        .inputGuardrails(new PromptSafetyInputGuardrail())
                         .build();
             }
             default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR,
