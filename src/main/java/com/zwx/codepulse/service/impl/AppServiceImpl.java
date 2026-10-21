@@ -460,7 +460,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         Page<AppVO> appVOPage = new Page<>(pageNum, pageSize, appPage.getTotal());
         List<AppVO> appVOList = this.getAppVOList(appPage.getRecords());
         appVOPage.setRecords(appVOList);
-        return null;
+        return appVOPage;
     }
 
     @Override

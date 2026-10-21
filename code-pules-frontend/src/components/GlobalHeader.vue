@@ -55,6 +55,8 @@ import { message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser.ts'
 import { LogoutOutlined } from '@ant-design/icons-vue'
 import { logout } from '@/api/authController.ts'
+import AppManagePage from '@/pages/admin/AppManagePage.vue'
+import ChatManagePage from '@/pages/admin/ChatManagePage.vue'
 
 // 获取登录用户状态
 const loginUserStore = useLoginUserStore()
@@ -78,6 +80,16 @@ const originItems = [
     key: '/admin/userManage',
     label: '用户管理',
     title: '用户管理',
+  },
+  {
+    key: '/admin/appManage',
+    label: '应用管理',
+    title: '应用管理',
+  },
+  {
+    key: '/admin/chatManage',
+    label: '对话管理',
+    title: '对话管理',
   },
 ]
 

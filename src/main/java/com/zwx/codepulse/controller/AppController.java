@@ -204,11 +204,11 @@ public class AppController {
      * @return 精选应用列表
      */
     @PostMapping("/good/list/page/vo")
-    @Cacheable(
-            value = "good_app_page",
-            key = "T(com.zwx.codepulse.utils.CacheKeyUtils).generateKey(#appQueryRequest)",
-            condition = "#appQueryRequest.pageNum <= 10"
-    )
+//    @Cacheable(
+//            value = "good_app_page",
+//            key = "T(com.zwx.codepulse.utils.CacheKeyUtils).generateKey(#appQueryRequest)",
+//            condition = "#appQueryRequest.pageNum <= 10"
+//    )
     public BaseResponse<Page<AppVO>> listGoodAppVOByPage(@RequestBody AppQueryRequest appQueryRequest) {
         ThrowUtils.throwIf(appQueryRequest == null, ErrorCode.PARAMS_ERROR);
         Page<AppVO> appVOPage = appService.listGoodAppVOByPage(appQueryRequest);
