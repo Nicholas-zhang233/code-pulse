@@ -2,6 +2,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
+import { ArrowUpOutlined } from '@ant-design/icons-vue'
 import { useLoginUserStore } from '@/stores/loginUser'
 import { addApp, listMyAppVoByPage, listGoodAppVoByPage } from '@/api/appController'
 import { getDeployUrl } from '@/config/env'
@@ -178,26 +179,40 @@ onMounted(() => {
 
       <!-- 用户提示词输入框 -->
       <div class="input-section">
+        <!-- 固定高度：不使用 auto-size，内容超出时在框内滚动 -->
         <a-textarea
           v-model:value="userPrompt"
           placeholder="帮我创建个人博客网站"
           :rows="4"
           :maxlength="1000"
+          :bordered="false"
           class="prompt-input"
         />
-        <div class="input-actions">
-          <a-button type="primary" size="large" @click="createApp" :loading="creating">
-            <template #icon>
-              <span>↑</span>
-            </template>
-          </a-button>
+        <!-- 底部操作栏：左侧模式说明，右侧模式选择 + 提交按钮 -->
+        <div class="input-footer">
+          <span class="mode-hint" :title="genModeDescription">{{ genModeDescription }}</span>
+          <div class="footer-actions">
+            <a-segmented
+              v-model:value="genMode"
+              :options="GEN_MODE_OPTIONS"
+              size="small"
+              class="mode-segmented"
+            />
+            <a-button
+              type="primary"
+              shape="circle"
+              class="send-btn"
+              aria-label="开始生成应用"
+              :loading="creating"
+              :disabled="creating || !userPrompt.trim()"
+              @click="createApp"
+            >
+              <template #icon>
+                <ArrowUpOutlined v-if="!creating" />
+              </template>
+            </a-button>
+          </div>
         </div>
-      </div>
-
-      <!-- 生成模式选择 -->
-      <div class="mode-switch">
-        <a-segmented v-model:value="genMode" :options="GEN_MODE_OPTIONS" block />
-        <p class="mode-tip">{{ genModeDescription }}</p>
       </div>
 
       <!-- 快捷按钮 -->
@@ -462,54 +477,156 @@ onMounted(() => {
 /* 输入区域 */
 .input-section {
   position: relative;
-  margin: 0 auto 24px;
+  margin: 0 auto 28px;
   max-width: 800px;
-}
-
-.prompt-input {
-  border-radius: 16px;
-  border: none;
-  font-size: 16px;
-  padding: 20px 60px 20px 20px;
   background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 20px;
   backdrop-filter: blur(20px);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
+  transition:
+    box-shadow 0.3s ease,
+    border-color 0.3s ease,
+    transform 0.3s ease;
+  overflow: hidden;
 }
 
-.prompt-input:focus {
-  background: rgba(255, 255, 255, 1);
-  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+.input-section:hover {
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.22);
+}
+
+.input-section:focus-within {
+  background: #fff;
+  border-color: rgba(59, 130, 246, 0.45);
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.25),
+    0 0 0 4px rgba(59, 130, 246, 0.12);
   transform: translateY(-2px);
 }
 
-.input-actions {
-  position: absolute;
-  bottom: 12px;
-  right: 12px;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-/* 生成模式选择 */
-.mode-switch {
-  max-width: 800px;
-  margin: 0 auto 32px;
-}
-
-.mode-switch .ant-segmented {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(15px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
-  padding: 4px;
-}
-
-.mode-tip {
-  margin: 10px 0 0;
-  text-align: center;
-  font-size: 13px;
+/* 固定高度：禁止拖拽缩放，内容超出时框内滚动（注意不要启用 showCount / autoSize） */
+.prompt-input {
+  display: block;
+  height: 140px;
+  min-height: 140px;
+  max-height: 140px;
+  box-sizing: border-box;
+  padding: 18px 20px 6px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 16px;
   line-height: 1.6;
-  color: #64748b;
+  resize: none;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+}
+
+.prompt-input:hover,
+.prompt-input:focus {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  transform: none;
+}
+
+.prompt-input::-webkit-scrollbar {
+  width: 6px;
+}
+
+.prompt-input::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.prompt-input::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.35);
+  border-radius: 3px;
+}
+
+.prompt-input::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.55);
+}
+
+/* 输入框底部操作栏：模式说明 + 模式选择 + 提交按钮 */
+.input-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 12px 12px;
+}
+
+.mode-hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.footer-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mode-segmented {
+  background: rgba(241, 245, 249, 0.9);
+  padding: 2px;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.2);
+}
+
+.mode-segmented :deep(.ant-segmented-item-label) {
+  font-size: 12px;
+  padding: 0 10px;
+}
+
+.mode-segmented :deep(.ant-segmented-item-selected) {
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+.send-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 50%;
+  font-size: 17px;
+  color: #fff;
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  box-shadow: 0 6px 18px rgba(59, 130, 246, 0.35);
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.input-footer .send-btn:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 10px 26px rgba(99, 102, 241, 0.45);
+}
+
+.input-footer .send-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+.input-footer .send-btn:disabled {
+  color: #fff;
+  background: rgba(148, 163, 184, 0.55);
+  box-shadow: none;
+  cursor: not-allowed;
 }
 
 /* 快捷按钮 */
@@ -609,6 +726,21 @@ onMounted(() => {
 
   .quick-actions {
     justify-content: center;
+  }
+}
+
+@media (max-width: 576px) {
+  .mode-hint {
+    display: none;
+  }
+
+  .input-footer {
+    justify-content: flex-end;
+  }
+
+  .send-btn {
+    width: 36px;
+    height: 36px;
   }
 }
 </style>
